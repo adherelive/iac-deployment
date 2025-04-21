@@ -1,0 +1,101 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    secrets:
+      - mysql_root_password
+      - mysql_user_password
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_DATABASE: adhere
+      MYSQL_USER: user
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_user_password
+      MYSQL_HOSTNAME: mysql
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Mount the init script
+    networks:
+      - al_ntwrk
+
+  mongodb:
+    image: mongo:latest
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    secrets:
+      - mongodb_password
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongouser
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongodb_password
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - al_ntwrk
+    ports:
+      - "27017:27017"
+
+  backend:
+    image: adherelive-be:dev
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+    secrets:
+      - mongodb_password
+      - mysql_user_password
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+      - mysql
+    environment:
+      MYSQL_HOST: mysql
+      MONGO_URI: mongodb://mongouser:password@mongodb:27017/adhere?authSource=admin
+    networks:
+      - al_ntwrk
+    volumes:
+      - ./.env:/user/src/app/.env
+    ports:
+      - "5000:5000"
+
+  frontend:
+    image: adherelive-fe:dev
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+    env_file:
+      - .env
+    networks:
+      - al_ntwrk
+    ports:
+      - "3000:80"
+
+networks:
+  al_ntwrk:
+    driver: overlay
+
+volumes:
+  mysql_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+secrets:
+  mysql_root_password:
+    external: true
+  mysql_user_password:
+    external: true
+  mongodb_password:
+    external: true
