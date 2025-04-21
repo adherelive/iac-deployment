@@ -295,6 +295,8 @@ resource "azurerm_linux_virtual_machine" "backend_vm" {
     mongodb_host = azurerm_cosmosdb_account.mongodb.connection_strings[0]
     redis_host = azurerm_redis_cache.redis.hostname
     redis_password = azurerm_redis_cache.redis.primary_access_key
+    admin_username = var.admin_username
+    domain_name = var.domain_name
   }))
 }
 
@@ -330,6 +332,7 @@ resource "azurerm_linux_virtual_machine" "frontend_vm" {
     backend_url = "http://${azurerm_public_ip.backend_ip.fqdn}:5000"
     domain_name = var.domain_name
     email = var.email
+    admin_username = var.admin_username
   }))
 }
 

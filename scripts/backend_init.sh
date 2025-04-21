@@ -11,7 +11,8 @@ apt-get install -y \
     software-properties-common \
     nginx \
     certbot \
-    python3-certbot-nginx
+    python3-certbot-nginx \
+    git
 
 # Install Node.js 16
 curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
@@ -24,6 +25,21 @@ apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io
 systemctl enable docker
 systemctl start docker
+
+# Install Docker Compose
+curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+
+# Setup SSH key for the azureuser
+mkdir -p /home/${admin_username}/.ssh
+touch /home/${admin_username}/.ssh/id_rsa
+chmod 600 /home/${admin_username}/.ssh/id_rsa
+# Note: You'll need to manually add the private key after deployment or use a key vault
+
+# Add GitHub to known hosts
+mkdir -p /home/${admin_username}/.ssh
+ssh-keyscan -t rsa github.com >> /home/${admin_username}/.ssh/known_hosts
+chown -R ${admin_username}:${admin_username} /home/${admin_username}/.ssh
 
 # Create app directory
 mkdir -p /app/backend
@@ -88,19 +104,31 @@ systemctl reload nginx
 cat << 'EOF' > /app/deploy.sh
 #!/bin/bash
 
+# Clone or pull the latest code
+if [ ! -d "/app/backend/repo" ]; then
+    # First time setup - clone the repo
+    git clone git@github.com:adherelive/adherelive-web.git /app/backend/repo
+    cd /app/backend/repo
+else
+    # Repository exists - pull the latest changes
+    cd /app/backend/repo
+    git pull
+fi
+
+# Get the current commit hash for labeling
+COMMIT_HASH=$(git rev-parse --short HEAD)
+
+# Build the Docker image
+docker build -t adherelive-be:latest -f Dockerfile-be --build-arg COMMIT_HASH=$COMMIT_HASH .
+
+# Go back to the app directory
 cd /app/backend
-
-# Pull latest code (assuming you have a repository)
-# git pull
-
-# Build Docker image (if needed)
-# docker build -t adherelive-be:latest .
 
 # Start or restart services
 docker-compose down
 docker-compose up -d
 
-echo "Backend deployed successfully"
+echo "Backend deployed successfully with commit: $COMMIT_HASH"
 EOF
 
 chmod +x /app/deploy.sh

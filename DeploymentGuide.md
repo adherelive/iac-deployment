@@ -70,17 +70,36 @@ After deployment completes, Terraform will output your frontend and backend IP a
 
 ### 8. Deploy Your Application Code
 
-Once the infrastructure is ready:
+Once the infrastructure is ready, you need to set up SSH access to GitHub repositories:
 
-1. Build your Docker images for frontend and backend applications
-2. Push the images to a container registry (Azure Container Registry or Docker Hub)
-3. SSH into your VMs and update the Docker Compose files to use your image names
-4. Run the deploy script on each server:
+1. *Prepare your GitHub SSH key*:
+   - Make sure you have an SSH key that has access to the AdhereLive GitHub repositories
+   - If you don't have one, create it and add it to your GitHub account
+
+2. *Deploy the SSH key to your servers*:
+   - Use the provided script to deploy your GitHub SSH key to both servers:
 
 ```bash
-ssh azureuser@YOUR_FRONTEND_IP "sudo /app/deploy.sh"
-ssh azureuser@YOUR_BACKEND_IP "sudo /app/deploy.sh"
+# Get the IPs from Terraform output
+BACKEND_IP=$(terraform output -raw backend_public_ip)
+FRONTEND_IP=$(terraform output -raw frontend_public_ip)
+
+# Run the SSH key deployment script
+./scripts/ssh_key_setup.sh $BACKEND_IP $FRONTEND_IP ~/.ssh/github_key
 ```
+
+This script will:
+- Copy your GitHub SSH key to both servers
+- Test the GitHub connection
+- Run the deployment scripts that will:
+  - Clone the repositories (adherelive-web.git for backend and adherelive-fe.git for frontend)
+  - Build the Docker images using the provided Dockerfiles
+  - Start the containers using Docker Compose
+
+3. *Verify deployment*:
+   - Check that the applications are running by accessing:
+     - Frontend: https://your-domain.com
+     - Backend API: https://api.your-domain.com
 
 ## Infrastructure Components
 
