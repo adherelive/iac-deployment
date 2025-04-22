@@ -2,6 +2,12 @@ provider "azurerm" {
   features {}
 }
 
+resource "random_string" "unique_suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 # Create a resource group
 resource "azurerm_resource_group" "adherelive" {
   name     = var.resource_group_name
@@ -22,6 +28,7 @@ resource "azurerm_subnet" "backend_subnet" {
   resource_group_name  = azurerm_resource_group.adherelive.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
+  service_endpoints    = ["Microsoft.AzureCosmosDB", "Microsoft.Sql"]
 }
 
 resource "azurerm_subnet" "frontend_subnet" {
@@ -129,7 +136,7 @@ resource "azurerm_public_ip" "backend_ip" {
   location            = azurerm_resource_group.adherelive.location
   resource_group_name = azurerm_resource_group.adherelive.name
   allocation_method   = "Static"
-  domain_name_label   = "${var.prefix}-backend"
+  domain_name_label   = "al-backend"
 }
 
 resource "azurerm_public_ip" "frontend_ip" {
@@ -137,7 +144,7 @@ resource "azurerm_public_ip" "frontend_ip" {
   location            = azurerm_resource_group.adherelive.location
   resource_group_name = azurerm_resource_group.adherelive.name
   allocation_method   = "Static"
-  domain_name_label   = var.prefix
+  domain_name_label   = "al-frontend"
 }
 
 # Create network interfaces
@@ -167,43 +174,42 @@ resource "azurerm_network_interface" "frontend_nic" {
   }
 }
 
-# Create MySQL server
-resource "azurerm_mysql_server" "mysql" {
+# Create MySQL Flexible server
+resource "azurerm_mysql_flexible_server" "mysql" {
   name                = "${var.prefix}-mysql"
   location            = azurerm_resource_group.adherelive.location
   resource_group_name = azurerm_resource_group.adherelive.name
 
   administrator_login          = "mysqladmin"
-  administrator_login_password = var.mysql_admin_password
+  administrator_password       = var.mysql_admin_password
 
-  sku_name   = "B_Gen5_1"
-  storage_mb = 5120
-  version    = "8.0"
+  sku_name   = "B_Standard_B1s"
+  version    = "8.0.21"
 
-  auto_grow_enabled                 = true
-  backup_retention_days             = 7
-  geo_redundant_backup_enabled      = false
-  infrastructure_encryption_enabled = false
-  public_network_access_enabled     = false
-  ssl_enforcement_enabled           = true
-  ssl_minimal_tls_version_enforced  = "TLS1_2"
+  backup_retention_days        = 7
+  geo_redundant_backup_enabled = false
+  
+  storage {
+    size_gb = 20
+  }
 }
 
 # Create MySQL database
-resource "azurerm_mysql_database" "adhere" {
+resource "azurerm_mysql_flexible_database" "adhere" {
   name                = "adhere"
   resource_group_name = azurerm_resource_group.adherelive.name
-  server_name         = azurerm_mysql_server.mysql.name
+  server_name         = azurerm_mysql_flexible_server.mysql.name
   charset             = "utf8"
   collation           = "utf8_unicode_ci"
 }
 
 # Create MySQL firewall rule for backend server
-resource "azurerm_mysql_virtual_network_rule" "mysql_vnet_rule" {
-  name                = "${var.prefix}-mysql-vnet-rule"
+resource "azurerm_mysql_flexible_server_firewall_rule" "mysql_fw_rule" {
+  name                = "${var.prefix}-mysql-fw-rule"
   resource_group_name = azurerm_resource_group.adherelive.name
-  server_name         = azurerm_mysql_server.mysql.name
-  subnet_id           = azurerm_subnet.backend_subnet.id
+  server_name         = azurerm_mysql_flexible_server.mysql.name
+  start_ip_address    = azurerm_public_ip.backend_ip.ip_address
+  end_ip_address      = azurerm_public_ip.backend_ip.ip_address
 }
 
 # Create Cosmos DB account for MongoDB API
@@ -246,13 +252,13 @@ resource "azurerm_cosmosdb_mongo_database" "adhere_db" {
 
 # Create Redis Cache
 resource "azurerm_redis_cache" "redis" {
-  name                = "${var.prefix}-redis"
+  name                = "${var.prefix}-redis-${random_string.unique_suffix.result}"
   location            = azurerm_resource_group.adherelive.location
   resource_group_name = azurerm_resource_group.adherelive.name
   capacity            = 1
   family              = "C"
   sku_name            = "Basic"
-  enable_non_ssl_port = false
+  non_ssl_port_enabled = false
   minimum_tls_version = "1.2"
 
   redis_configuration {
@@ -288,11 +294,12 @@ resource "azurerm_linux_virtual_machine" "backend_vm" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/scripts/backend_init.sh", {
-    mysql_host = azurerm_mysql_server.mysql.fqdn
+    mysql_host = azurerm_mysql_flexible_server.mysql.fqdn
     mysql_user = "mysqladmin"
     mysql_password = var.mysql_admin_password
     mysql_database = "adhere"
-    mongodb_host = azurerm_cosmosdb_account.mongodb.connection_strings[0]
+    mongodb_host = azurerm_cosmosdb_account.mongodb.endpoint
+    mongodb_primary_key = azurerm_cosmosdb_account.mongodb.primary_key
     redis_host = azurerm_redis_cache.redis.hostname
     redis_password = azurerm_redis_cache.redis.primary_access_key
     admin_username = var.admin_username
@@ -338,7 +345,7 @@ resource "azurerm_linux_virtual_machine" "frontend_vm" {
 
 # DNS Zone
 resource "azurerm_dns_zone" "main" {
-  name                = var.domain_name
+  name                = var.domain_name != "" ? var.domain_name : "adherelivedemo.com"
   resource_group_name = azurerm_resource_group.adherelive.name
 }
 
@@ -378,11 +385,15 @@ output "backend_fqdn" {
 }
 
 output "mysql_fqdn" {
-  value = azurerm_mysql_server.mysql.fqdn
+  value = azurerm_mysql_flexible_server.mysql.fqdn
 }
 
-output "cosmosdb_connection_strings" {
-  value     = azurerm_cosmosdb_account.mongodb.connection_strings
+output "cosmosdb_endpoint" {
+  value = azurerm_cosmosdb_account.mongodb.endpoint
+}
+
+output "cosmosdb_primary_key" {
+  value     = azurerm_cosmosdb_account.mongodb.primary_key
   sensitive = true
 }
 

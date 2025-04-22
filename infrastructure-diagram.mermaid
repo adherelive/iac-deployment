@@ -1,0 +1,122 @@
+Comprehensive diagram representing the Azure infrastructure based on the Terraform configuration.
+Here's a breakdown of what the diagram shows:
+
+1. *Internet Layer*: Shows users accessing your application and GitHub repositories for code deployment
+
+2. *Azure Cloud*: Contains all your Azure resources within a resource group
+   - **Virtual Network (10.0.0.0/16)**: Main network with three subnets
+     - Frontend Subnet (10.0.2.0/24)
+     - Backend Subnet (10.0.1.0/24)
+     - Database Subnet (10.0.3.0/24)
+
+3. *Compute Resources*:
+   - Frontend VM: Runs Docker, Nginx, handles Let's Encrypt SSL
+   - Backend VM: Runs Docker, Nginx, Node.js application
+
+4. *Security*:
+   - Network Security Groups controlling access to each subnet
+   - SSH access restricted to admin IP
+   - Frontend NSG allows HTTP/HTTPS traffic
+   - Backend NSG allows API traffic on port 5000
+
+5. *Database Services*:
+   - Azure MySQL Flexible Server for relational data
+   - Azure Cosmos DB with MongoDB API
+   - Azure Redis Cache for caching
+
+6. *Public Access*:
+   - Public IPs with Azure DNS labels
+   - Custom domain management via Azure DNS Zone
+
+7. *Connections*:
+   - Frontend connects to Backend
+   - Backend connects to all database services
+   - Both VMs can pull code from GitHub repositories
+
+The diagram visually represents the security boundaries, network segmentation, and service interconnections in your infrastructure.
+
+
+flowchart TB
+    subgraph Internet["Internet"]
+        Users((Users))
+        GitHub[("GitHub Repositories\n- adherelive-web\n- adherelive-fe")]
+    end
+
+    subgraph Azure["Azure Cloud"]
+        subgraph RG["Resource Group (adherelive-rg)"]
+            subgraph Network["Virtual Network (10.0.0.0/16)"]
+                subgraph FrontendSubnet["Frontend Subnet\n10.0.2.0/24"]
+                    FrontendVM[["Frontend VM\n- Ubuntu 18.04\n- Docker\n- Nginx\n- Let's Encrypt"]]
+                    FrontendNIC[/"Frontend NIC"/]
+                end
+
+                subgraph BackendSubnet["Backend Subnet\n10.0.1.0/24"]
+                    BackendVM[["Backend VM\n- Ubuntu 18.04\n- Docker\n- Nginx\n- Node.js"]]
+                    BackendNIC[/"Backend NIC"/]
+                end
+
+                subgraph DatabaseSubnet["Database Subnet\n10.0.3.0/24"]
+                    DatabaseEndpoints[/"Database Service Endpoints"/]
+                end
+            end
+
+            subgraph PublicEndpoints["Public Endpoints"]
+                FrontendIP["Frontend Public IP\nal-frontend.eastus.cloudapp.azure.com"]
+                BackendIP["Backend Public IP\nal-backend.eastus.cloudapp.azure.com"]
+            end
+
+            subgraph SecurityGroups["Network Security Groups"]
+                FrontendNSG["Frontend NSG\n- HTTP (80)\n- HTTPS (443)\n- SSH (22)"]
+                BackendNSG["Backend NSG\n- API Port (5000)\n- SSH (22)"]
+            end
+
+            subgraph PaaS["Platform Services"]
+                MySQL[("MySQL Flexible Server\n- adhere database\n- B_Standard_B1s")]
+                CosmosDB[("Azure Cosmos DB\n- MongoDB API\n- adhere database")]
+                Redis[("Azure Redis Cache\n- Basic tier\n- TLS enabled")]
+            end
+
+            DNS["Azure DNS Zone\nadherelive.com"]
+        end
+    end
+
+    %% Network connections
+    Users --> FrontendIP
+    FrontendIP --> FrontendNIC
+    FrontendNIC --> FrontendVM
+    FrontendNSG -.- FrontendSubnet
+
+    Users --> BackendIP
+    BackendIP --> BackendNIC
+    BackendNIC --> BackendVM
+    BackendNSG -.- BackendSubnet
+
+    FrontendVM --> BackendVM
+    BackendVM --> MySQL
+    BackendVM --> CosmosDB
+    BackendVM --> Redis
+
+    GitHub --> FrontendVM
+    GitHub --> BackendVM
+
+    DNS --> FrontendIP
+    DNS --> BackendIP
+
+    DatabaseEndpoints --> MySQL
+    DatabaseEndpoints --> CosmosDB
+
+    classDef azure fill:#0072C6,stroke:#fff,stroke-width:2px,color:#fff
+    classDef vm fill:#50e6ff,stroke:#0072C6,stroke-width:2px,color:#000
+    classDef database fill:#f9f,stroke:#333,stroke-width:2px,color:#000
+    classDef subnet fill:#bfecff,stroke:#0072C6,stroke-width:1px
+    classDef security fill:#ffd700,stroke:#666,stroke-width:2px,color:#000
+    classDef network fill:#e1f5fe,stroke:#0072C6,stroke-width:1px
+    classDef public fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
+
+    class Azure azure
+    class FrontendVM,BackendVM vm
+    class MySQL,CosmosDB,Redis database
+    class FrontendSubnet,BackendSubnet,DatabaseSubnet subnet
+    class FrontendNSG,BackendNSG security
+    class Network network
+    class FrontendIP,BackendIP public

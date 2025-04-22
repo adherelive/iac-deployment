@@ -1,6 +1,10 @@
 variable "prefix" {
   description = "The prefix which should be used for all resources"
   default     = "alprod"
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,50}[a-z0-9]$", var.prefix)) || can(regex("^[a-z][a-z0-9]$", var.prefix))
+    error_message = "The prefix must start with a letter, end with a letter or number, and contain only lowercase letters, numbers, and hyphens. Maximum length is 50 characters."
+  }
 }
 
 variable "location" {
@@ -18,6 +22,11 @@ variable "admin_username" {
   default     = "adherelive"
 }
 
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key for Azure VM authentication & GitHub"
+  default     = "~/.ssh/id_rsa.pub"
+}
+
 variable "admin_ip_address" {
   description = "The IP address range that can be used to SSH to the Virtual Machines"
   default     = "*"
@@ -30,7 +39,7 @@ variable "mysql_admin_password" {
 
 variable "domain_name" {
   description = "The domain name to use for the application"
-  default     = "portal.adhere.live"
+  default     = "adherelivedemo"
 }
 
 variable "email" {
@@ -38,12 +47,3 @@ variable "email" {
   default	  = "gagneet.singh@adhere.live"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to the SSH public key for Azure VM authentication"
-  default     = "~/.ssh/id_rsa.pub"
-}
-
-variable "github_ssh_key_path" {
-  description = "Path to the SSH private key for GitHub access"
-  default     = "~/.ssh/github_key"
-}

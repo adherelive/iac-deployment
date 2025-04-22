@@ -53,7 +53,9 @@ MYSQL_HOST=${mysql_host}
 MYSQL_USER=${mysql_user}
 MYSQL_PASSWORD=${mysql_password}
 MYSQL_DATABASE=${mysql_database}
-MONGO_URI=${mongodb_host}
+MONGO_URI=mongodb://${mongodb_host}:10255/?ssl=true&replicaSet=globaldb&retryWrites=false&maxIdleTimeMS=120000&appName=@${mongodb_host}@
+MONGO_USERNAME=${mongodb_host}
+MONGO_PASSWORD=${mongodb_primary_key}
 REDIS_HOST=${redis_host}
 REDIS_PORT=6379
 REDIS_PASSWORD=${redis_password}
