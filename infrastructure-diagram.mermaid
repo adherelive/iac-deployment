@@ -33,6 +33,12 @@ Here's a breakdown of what the diagram shows:
    - Backend connects to all database services
    - Both VMs can pull code from GitHub repositories
 
+8. Service Endpoints: 
+   - Added explicit service endpoints to both the Backend and Database subnets showing exactly which Azure services they connect to (Microsoft.AzureCosmosDB and Microsoft.Sql)
+
+9. Redis Cache:
+   - Updated to note that it uses a unique name with a random suffix (to avoid naming conflicts)
+
 The diagram visually represents the security boundaries, network segmentation, and service interconnections in your infrastructure.
 
 
@@ -53,10 +59,11 @@ flowchart TB
                 subgraph BackendSubnet["Backend Subnet\n10.0.1.0/24"]
                     BackendVM[["Backend VM\n- Ubuntu 18.04\n- Docker\n- Nginx\n- Node.js"]]
                     BackendNIC[/"Backend NIC"/]
+                    BackendEndpoints[/"Service Endpoints:\n- Microsoft.AzureCosmosDB\n- Microsoft.Sql"/]
                 end
 
                 subgraph DatabaseSubnet["Database Subnet\n10.0.3.0/24"]
-                    DatabaseEndpoints[/"Database Service Endpoints"/]
+                    DatabaseEndpoints[/"Service Endpoints:\n- Microsoft.Sql\n- Microsoft.AzureCosmosDB"/]
                 end
             end
 
@@ -73,7 +80,7 @@ flowchart TB
             subgraph PaaS["Platform Services"]
                 MySQL[("MySQL Flexible Server\n- adhere database\n- B_Standard_B1s")]
                 CosmosDB[("Azure Cosmos DB\n- MongoDB API\n- adhere database")]
-                Redis[("Azure Redis Cache\n- Basic tier\n- TLS enabled")]
+                Redis[("Azure Redis Cache\n- Basic tier\n- TLS enabled\n- Unique name with random suffix")]
             end
 
             DNS["Azure DNS Zone\nadherelive.com"]

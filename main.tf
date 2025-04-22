@@ -183,8 +183,8 @@ resource "azurerm_mysql_flexible_server" "mysql" {
   administrator_login          = "mysqladmin"
   administrator_password       = var.mysql_admin_password
 
-  sku_name   = "B_Standard_B1s"
-  version    = "8.0.21"
+  sku_name   = "B_Standard_B1ms"  # Changed to B1ms which is more commonly available
+  version    = "8.0"  # Try MySQL 5.7 instead of 8.0
 
   backup_retention_days        = 7
   geo_redundant_backup_enabled = false
@@ -214,7 +214,7 @@ resource "azurerm_mysql_flexible_server_firewall_rule" "mysql_fw_rule" {
 
 # Create Cosmos DB account for MongoDB API
 resource "azurerm_cosmosdb_account" "mongodb" {
-  name                = "${var.prefix}-mongodb"
+  name                = "${var.prefix}-mongodb-${random_string.unique_suffix.result}"
   location            = azurerm_resource_group.adherelive.location
   resource_group_name = azurerm_resource_group.adherelive.name
   offer_type          = "Standard"
