@@ -1,5 +1,5 @@
-provider "azurerm" {
-  features {}
+provider "aws" {
+  region = var.region
 }
 
 resource "random_string" "unique_suffix" {
@@ -8,406 +8,477 @@ resource "random_string" "unique_suffix" {
   upper   = false
 }
 
-# Create a resource group
-resource "azurerm_resource_group" "adherelive" {
-  name     = var.resource_group_name
-  location = var.location
+# Create a VPC
+resource "aws_vpc" "adherelive_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "${var.prefix}-vpc"
+  }
 }
 
-# Create a virtual network
-resource "azurerm_virtual_network" "vnet" {
-  name                = "${var.prefix}-vnet"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
+# Create Internet Gateway
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.adherelive_vpc.id
+
+  tags = {
+    Name = "${var.prefix}-igw"
+  }
 }
 
 # Create subnets
-resource "azurerm_subnet" "backend_subnet" {
-  name                 = "${var.prefix}-backend-subnet"
-  resource_group_name  = azurerm_resource_group.adherelive.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
-  service_endpoints    = ["Microsoft.AzureCosmosDB", "Microsoft.Sql"]
-}
+resource "aws_subnet" "public_subnet_a" {
+  vpc_id                  = aws_vpc.adherelive_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "${var.region}a"
 
-resource "azurerm_subnet" "frontend_subnet" {
-  name                 = "${var.prefix}-frontend-subnet"
-  resource_group_name  = azurerm_resource_group.adherelive.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
-}
-
-resource "azurerm_subnet" "database_subnet" {
-  name                 = "${var.prefix}-database-subnet"
-  resource_group_name  = azurerm_resource_group.adherelive.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.3.0/24"]
-  service_endpoints    = ["Microsoft.Sql", "Microsoft.AzureCosmosDB"]
-}
-
-# Create Network Security Groups
-resource "azurerm_network_security_group" "backend_nsg" {
-  name                = "${var.prefix}-backend-nsg"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-
-  security_rule {
-    name                       = "SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.admin_ip_address
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "Backend"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "5000"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+  tags = {
+    Name = "${var.prefix}-public-subnet-a"
   }
 }
 
-resource "azurerm_network_security_group" "frontend_nsg" {
-  name                = "${var.prefix}-frontend-nsg"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
+resource "aws_subnet" "public_subnet_b" {
+  vpc_id                  = aws_vpc.adherelive_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "${var.region}b"
 
-  security_rule {
-    name                       = "SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.admin_ip_address
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "HTTP"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "HTTPS"
-    priority                   = 1003
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+  tags = {
+    Name = "${var.prefix}-public-subnet-b"
   }
 }
 
-# Associate NSGs with subnets
-resource "azurerm_subnet_network_security_group_association" "backend_nsg_association" {
-  subnet_id                 = azurerm_subnet.backend_subnet.id
-  network_security_group_id = azurerm_network_security_group.backend_nsg.id
-}
+resource "aws_subnet" "private_subnet_a" {
+  vpc_id                  = aws_vpc.adherelive_vpc.id
+  cidr_block              = "10.0.3.0/24"
+  map_public_ip_on_launch = false
+  availability_zone       = "${var.region}a"
 
-resource "azurerm_subnet_network_security_group_association" "frontend_nsg_association" {
-  subnet_id                 = azurerm_subnet.frontend_subnet.id
-  network_security_group_id = azurerm_network_security_group.frontend_nsg.id
-}
-
-# Create public IPs
-resource "azurerm_public_ip" "backend_ip" {
-  name                = "${var.prefix}-backend-ip"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  allocation_method   = "Static"
-  domain_name_label   = "al-backend"
-}
-
-resource "azurerm_public_ip" "frontend_ip" {
-  name                = "${var.prefix}-frontend-ip"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  allocation_method   = "Static"
-  domain_name_label   = "al-frontend"
-}
-
-# Create network interfaces
-resource "azurerm_network_interface" "backend_nic" {
-  name                = "${var.prefix}-backend-nic"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.backend_subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.backend_ip.id
+  tags = {
+    Name = "${var.prefix}-private-subnet-a"
   }
 }
 
-resource "azurerm_network_interface" "frontend_nic" {
-  name                = "${var.prefix}-frontend-nic"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
+resource "aws_subnet" "private_subnet_b" {
+  vpc_id                  = aws_vpc.adherelive_vpc.id
+  cidr_block              = "10.0.4.0/24"
+  map_public_ip_on_launch = false
+  availability_zone       = "${var.region}b"
 
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.frontend_subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.frontend_ip.id
+  tags = {
+    Name = "${var.prefix}-private-subnet-b"
   }
 }
 
-# Create MySQL Flexible server
-resource "azurerm_mysql_flexible_server" "mysql" {
-  name                = "${var.prefix}-mysql"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
+# Create route tables
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.adherelive_vpc.id
 
-  administrator_login          = "mysqladmin"
-  administrator_password       = var.mysql_admin_password
-
-  sku_name   = "B_Standard_B1ms"  # Changed to B1ms which is more commonly available
-  version    = "5.7"  # Try MySQL 5.7 instead of 8.0
-
-  backup_retention_days        = 7
-  geo_redundant_backup_enabled = false
-  
-  storage {
-    size_gb = 20
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
   }
 
-  lifecycle {
-    ignore_changes = [
-      zone,
-    ]
+  tags = {
+    Name = "${var.prefix}-public-rt"
   }
 }
 
-# Create MySQL database
-resource "azurerm_mysql_flexible_database" "adhere" {
-  name                = "adhere"
-  resource_group_name = azurerm_resource_group.adherelive.name
-  server_name         = azurerm_mysql_flexible_server.mysql.name
-  charset             = "utf8"
-  collation           = "utf8_unicode_ci"
+# Associate route table with public subnets
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_subnet_a.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
-# Create MySQL firewall rule for backend server
-resource "azurerm_mysql_flexible_server_firewall_rule" "mysql_fw_rule" {
-  name                = "${var.prefix}-mysql-fw-rule"
-  resource_group_name = azurerm_resource_group.adherelive.name
-  server_name         = azurerm_mysql_flexible_server.mysql.name
-  start_ip_address    = azurerm_public_ip.backend_ip.ip_address
-  end_ip_address      = azurerm_public_ip.backend_ip.ip_address
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_subnet_b.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
-# Create Cosmos DB account for MongoDB API
-resource "azurerm_cosmosdb_account" "mongodb" {
-  name                = "${var.prefix}-mongodb-${random_string.unique_suffix.result}"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  offer_type          = "Standard"
-  kind                = "MongoDB"
-
-  capabilities {
-    name = "EnableMongo"
-  }
-
-  consistency_policy {
-    consistency_level       = "Session"
-    max_interval_in_seconds = 5
-    max_staleness_prefix    = 100
-  }
-
-  geo_location {
-    location          = azurerm_resource_group.adherelive.location
-    failover_priority = 0
-  }
-
-  is_virtual_network_filter_enabled = true
-  
-  virtual_network_rule {
-    id = azurerm_subnet.backend_subnet.id
+# Create NAT Gateway
+resource "aws_eip" "nat_eip" {
+  domain = "vpc"
+  tags = {
+    Name = "${var.prefix}-nat-eip"
   }
 }
 
-# Create Cosmos DB database
-resource "azurerm_cosmosdb_mongo_database" "adhere_db" {
-  name                = "adhere"
-  resource_group_name = azurerm_resource_group.adherelive.name
-  account_name        = azurerm_cosmosdb_account.mongodb.name
-  throughput          = 400
-}
+resource "aws_nat_gateway" "nat_gw" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public_subnet_a.id
 
-# Create Redis Cache
-resource "azurerm_redis_cache" "redis" {
-  name                = "${var.prefix}-redis-${random_string.unique_suffix.result}"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  capacity            = 1
-  family              = "C"
-  sku_name            = "Basic"
-  non_ssl_port_enabled = false
-  minimum_tls_version = "1.2"
-
-  redis_configuration {
+  tags = {
+    Name = "${var.prefix}-nat-gw"
   }
 }
 
-# Create backend VM
-resource "azurerm_linux_virtual_machine" "backend_vm" {
-  name                = "${var.prefix}-backend-vm"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  size                = "Standard_B2s"
-  admin_username      = var.admin_username
-  network_interface_ids = [
-    azurerm_network_interface.backend_nic.id,
-  ]
+# Create private route table with NAT Gateway
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.adherelive_vpc.id
 
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_gw.id
   }
 
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+  tags = {
+    Name = "${var.prefix}-private-rt"
+  }
+}
+
+# Associate route table with private subnets
+resource "aws_route_table_association" "private_a" {
+  subnet_id      = aws_subnet.private_subnet_a.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+resource "aws_route_table_association" "private_b" {
+  subnet_id      = aws_subnet.private_subnet_b.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+# Create security groups
+resource "aws_security_group" "frontend_sg" {
+  name        = "${var.prefix}-frontend-sg"
+  description = "Security group for frontend server"
+  vpc_id      = aws_vpc.adherelive_vpc.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  custom_data = base64encode(templatefile("${path.module}/scripts/backend_init.sh", {
-    mysql_host = azurerm_mysql_flexible_server.mysql.fqdn
-    mysql_user = "mysqladmin"
-    mysql_password = var.mysql_admin_password
-    mysql_database = "adhere"
-    mongodb_host = azurerm_cosmosdb_account.mongodb.endpoint
-    mongodb_primary_key = azurerm_cosmosdb_account.mongodb.primary_key
-    redis_host = azurerm_redis_cache.redis.hostname
-    redis_password = azurerm_redis_cache.redis.primary_access_key
-    admin_username = var.admin_username
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_ip_address]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.prefix}-frontend-sg"
+  }
+}
+
+resource "aws_security_group" "backend_sg" {
+  name        = "${var.prefix}-backend-sg"
+  description = "Security group for backend server"
+  vpc_id      = aws_vpc.adherelive_vpc.id
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_ip_address]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.prefix}-backend-sg"
+  }
+}
+
+resource "aws_security_group" "db_sg" {
+  name        = "${var.prefix}-db-sg"
+  description = "Security group for databases"
+  vpc_id      = aws_vpc.adherelive_vpc.id
+
+  # MySQL
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.backend_sg.id]
+  }
+
+  # MongoDB
+  ingress {
+    from_port       = 27017
+    to_port         = 27017
+    protocol        = "tcp"
+    security_groups = [aws_security_group.backend_sg.id]
+  }
+
+  # Redis
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.backend_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.prefix}-db-sg"
+  }
+}
+
+# Create key pair for SSH
+resource "aws_key_pair" "ssh_key" {
+  key_name   = "${var.prefix}-key"
+  public_key = file(var.ssh_public_key_path)
+}
+
+# Create EC2 instances
+resource "aws_instance" "frontend" {
+  ami                    = var.ami_id
+  instance_type          = "t3.small"
+  subnet_id              = aws_subnet.public_subnet_a.id
+  vpc_security_group_ids = [aws_security_group.frontend_sg.id]
+  key_name               = aws_key_pair.ssh_key.key_name
+
+  user_data = templatefile("${path.module}/scripts/frontend_init.sh", {
+    backend_url = "http://${aws_instance.backend.private_ip}:5000"
     domain_name = var.domain_name
-  }))
-}
-
-# Create frontend VM
-resource "azurerm_linux_virtual_machine" "frontend_vm" {
-  name                = "${var.prefix}-frontend-vm"
-  location            = azurerm_resource_group.adherelive.location
-  resource_group_name = azurerm_resource_group.adherelive.name
-  size                = "Standard_B2s"
-  admin_username      = var.admin_username
-  network_interface_ids = [
-    azurerm_network_interface.frontend_nic.id,
-  ]
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-
-  custom_data = base64encode(templatefile("${path.module}/scripts/frontend_init.sh", {
-    backend_url = "http://${azurerm_public_ip.backend_ip.fqdn}:5000"
-    domain_name = var.domain_name
-    email = var.email
+    email       = var.email
     admin_username = var.admin_username
-  }))
+  })
+
+  tags = {
+    Name = "${var.prefix}-frontend"
+  }
+
+  depends_on = [aws_instance.backend]
 }
 
-# DNS Zone
-resource "azurerm_dns_zone" "main" {
-  name                = var.domain_name != "" ? var.domain_name : "adherelivedemo.com"
-  resource_group_name = azurerm_resource_group.adherelive.name
+resource "aws_instance" "backend" {
+  ami                    = var.ami_id
+  instance_type          = "t3.small"
+  subnet_id              = aws_subnet.public_subnet_a.id
+  vpc_security_group_ids = [aws_security_group.backend_sg.id]
+  key_name               = aws_key_pair.ssh_key.key_name
+
+  user_data = templatefile("${path.module}/scripts/backend_init.sh", {
+    mysql_host       = aws_db_instance.mysql.address
+    mysql_user       = "mysqladmin"
+    mysql_password   = var.mysql_admin_password
+    mysql_database   = "adhere"
+    mongodb_host     = aws_docdb_cluster.mongodb.endpoint
+    mongodb_username = "docdbadmin"
+    mongodb_password = var.mongodb_admin_password
+    redis_host       = aws_elasticache_cluster.redis.cache_nodes.0.address
+    redis_port       = aws_elasticache_cluster.redis.cache_nodes.0.port
+    redis_password   = ""  # AWS ElastiCache doesn't use passwords by default
+    admin_username   = var.admin_username
+    domain_name      = var.domain_name
+  })
+
+  tags = {
+    Name = "${var.prefix}-backend"
+  }
 }
 
-# DNS A record for frontend
-resource "azurerm_dns_a_record" "frontend" {
-  name                = "@"
-  zone_name           = azurerm_dns_zone.main.name
-  resource_group_name = azurerm_resource_group.adherelive.name
-  ttl                 = 300
-  records             = [azurerm_public_ip.frontend_ip.ip_address]
+# Create RDS MySQL
+resource "aws_db_subnet_group" "mysql" {
+  name       = "${var.prefix}-mysql-subnet-group"
+  subnet_ids = [aws_subnet.private_subnet_a.id, aws_subnet.private_subnet_b.id]
+
+  tags = {
+    Name = "${var.prefix}-mysql-subnet-group"
+  }
 }
 
-# DNS A record for API (backend)
-resource "azurerm_dns_a_record" "api" {
-  name                = "api"
-  zone_name           = azurerm_dns_zone.main.name
-  resource_group_name = azurerm_resource_group.adherelive.name
-  ttl                 = 300
-  records             = [azurerm_public_ip.backend_ip.ip_address]
+resource "aws_db_instance" "mysql" {
+  identifier              = "${var.prefix}-mysql"
+  allocated_storage       = 20
+  storage_type            = "gp2"
+  engine                  = "mysql"
+  engine_version          = "8.0"
+  instance_class          = "db.t3.small"
+  db_name                 = "adhere"
+  username                = "mysqladmin"
+  password                = var.mysql_admin_password
+  vpc_security_group_ids  = [aws_security_group.db_sg.id]
+  db_subnet_group_name    = aws_db_subnet_group.mysql.name
+  skip_final_snapshot     = true
+  backup_retention_period = 7
+  multi_az                = false
+
+  tags = {
+    Name = "${var.prefix}-mysql"
+  }
 }
 
-# Output the public IPs and FQDNs
+# Create DocumentDB (MongoDB-compatible)
+resource "aws_docdb_subnet_group" "mongodb" {
+  name       = "${var.prefix}-docdb-subnet-group"
+  subnet_ids = [aws_subnet.private_subnet_a.id, aws_subnet.private_subnet_b.id]
+
+  tags = {
+    Name = "${var.prefix}-docdb-subnet-group"
+  }
+}
+
+resource "aws_docdb_cluster" "mongodb" {
+  cluster_identifier      = "${var.prefix}-mongodb-${random_string.unique_suffix.result}"
+  engine                  = "docdb"
+  master_username         = "docdbadmin"
+  master_password         = var.mongodb_admin_password
+  backup_retention_period = 7
+  preferred_backup_window = "07:00-09:00"
+  skip_final_snapshot     = true
+  db_subnet_group_name    = aws_docdb_subnet_group.mongodb.name
+  vpc_security_group_ids  = [aws_security_group.db_sg.id]
+
+  tags = {
+    Name = "${var.prefix}-mongodb"
+  }
+}
+
+resource "aws_docdb_cluster_instance" "mongodb_instances" {
+  count              = 1
+  identifier         = "${var.prefix}-mongodb-${count.index}"
+  cluster_identifier = aws_docdb_cluster.mongodb.id
+  instance_class     = "db.t3.medium"
+
+  tags = {
+    Name = "${var.prefix}-mongodb-${count.index}"
+  }
+}
+
+# Create ElastiCache (Redis)
+resource "aws_elasticache_subnet_group" "redis" {
+  name       = "${var.prefix}-redis-subnet-group"
+  subnet_ids = [aws_subnet.private_subnet_a.id, aws_subnet.private_subnet_b.id]
+}
+
+resource "aws_elasticache_cluster" "redis" {
+  cluster_id           = "${var.prefix}-redis-${random_string.unique_suffix.result}"
+  engine               = "redis"
+  node_type            = "cache.t3.small"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis6.x"
+  engine_version       = "6.0"
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.redis.name
+  security_group_ids   = [aws_security_group.db_sg.id]
+
+  tags = {
+    Name = "${var.prefix}-redis"
+  }
+}
+
+# Create Route53 zone and records
+resource "aws_route53_zone" "main" {
+  name = var.domain_name
+
+  tags = {
+    Name = "${var.prefix}-route53-zone"
+  }
+}
+
+# Allocate Elastic IPs for instances
+resource "aws_eip" "frontend_eip" {
+  domain = "vpc"
+  instance = aws_instance.frontend.id
+  
+  tags = {
+    Name = "${var.prefix}-frontend-eip"
+  }
+}
+
+resource "aws_eip" "backend_eip" {
+  domain = "vpc"
+  instance = aws_instance.backend.id
+  
+  tags = {
+    Name = "${var.prefix}-backend-eip"
+  }
+}
+
+# Create Route53 records
+resource "aws_route53_record" "frontend" {
+  zone_id = aws_route53_zone.main.zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.frontend_eip.public_ip]
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.frontend_eip.public_ip]
+}
+
+resource "aws_route53_record" "api" {
+  zone_id = aws_route53_zone.main.zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.backend_eip.public_ip]
+}
+
+# Outputs
 output "frontend_public_ip" {
-  value = azurerm_public_ip.frontend_ip.ip_address
-}
-
-output "frontend_fqdn" {
-  value = azurerm_public_ip.frontend_ip.fqdn
+  value = aws_eip.frontend_eip.public_ip
 }
 
 output "backend_public_ip" {
-  value = azurerm_public_ip.backend_ip.ip_address
+  value = aws_eip.backend_eip.public_ip
 }
 
-output "backend_fqdn" {
-  value = azurerm_public_ip.backend_ip.fqdn
+output "mysql_endpoint" {
+  value = aws_db_instance.mysql.endpoint
 }
 
-output "mysql_fqdn" {
-  value = azurerm_mysql_flexible_server.mysql.fqdn
+output "mongodb_endpoint" {
+  value = aws_docdb_cluster.mongodb.endpoint
 }
 
-output "cosmosdb_endpoint" {
-  value = azurerm_cosmosdb_account.mongodb.endpoint
+output "mongodb_username" {
+  value = aws_docdb_cluster.mongodb.master_username
 }
 
-output "cosmosdb_primary_key" {
-  value     = azurerm_cosmosdb_account.mongodb.primary_key
+output "mongodb_password" {
+  value     = aws_docdb_cluster.mongodb.master_password
   sensitive = true
 }
 
-output "redis_hostname" {
-  value = azurerm_redis_cache.redis.hostname
+output "redis_endpoint" {
+  value = aws_elasticache_cluster.redis.cache_nodes.0.address
 }
 
-output "redis_primary_access_key" {
-  value     = azurerm_redis_cache.redis.primary_access_key
-  sensitive = true
+output "redis_port" {
+  value = aws_elasticache_cluster.redis.cache_nodes.0.port
 }

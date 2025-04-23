@@ -1,8 +1,8 @@
 terraform {
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -10,11 +10,12 @@ terraform {
     }
   }
 
-  # Uncomment this section if you want to use Azure Storage for state management
-  # backend "azurerm" {
-  #   resource_group_name  = "terraform-state-rg"
-  #   storage_account_name = "adherelivestatesa"
-  #   container_name       = "terraform-state"
-  #   key                  = "terraform.tfstate"
+  # Uncomment this section if you want to use S3 for state management
+  # backend "s3" {
+  #   bucket = "adherelive-terraform-state"
+  #   key    = "terraform.tfstate"
+  #   region = "us-east-1"
+  #   encrypt = true
+  #   dynamodb_table = "adherelive-terraform-locks"
   # }
 }

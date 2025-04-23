@@ -1,43 +1,57 @@
-Comprehensive diagram representing the Azure infrastructure based on the Terraform configuration.
-Here's a breakdown of what the diagram shows:
+Comprehensive AWS-based infrastructure for the AdhereLive application, equivalent to the Azure deployment. 
+Here's a summary of what is required:
 
-1. *Internet Layer*: Shows users accessing your application and GitHub repositories for code deployment
+## AWS Infrastructure Overview
 
-2. *Azure Cloud*: Contains all your Azure resources within a resource group
-   - **Virtual Network (10.0.0.0/16)**: Main network with three subnets
-     - Frontend Subnet (10.0.2.0/24)
-     - Backend Subnet (10.0.1.0/24)
-     - Database Subnet (10.0.3.0/24)
+### Key Components
 
-3. *Compute Resources*:
-   - Frontend VM: Runs Docker, Nginx, handles Let's Encrypt SSL
-   - Backend VM: Runs Docker, Nginx, Node.js application
+1. *Network Architecture*:
+   - VPC with proper public and private subnets across two availability zones
+   - Internet Gateway for public access
+   - NAT Gateway for private subnet outbound connectivity
+   - Security groups for fine-grained access control
 
-4. *Security*:
-   - Network Security Groups controlling access to each subnet
-   - SSH access restricted to admin IP
-   - Frontend NSG allows HTTP/HTTPS traffic
-   - Backend NSG allows API traffic on port 5000
+2. *Compute Resources*:
+   - EC2 instances for frontend and backend servers
+   - Ubuntu Linux with Docker, Node.js, and Nginx setup
+   - User data scripts for automatic configuration and application setup
 
-5. *Database Services*:
-   - Azure MySQL Flexible Server for relational data
-   - Azure Cosmos DB with MongoDB API
-   - Azure Redis Cache for caching
+3. *Database Services*:
+   - RDS MySQL for relational data storage
+   - DocumentDB (AWS's MongoDB-compatible service) 
+   - ElastiCache for Redis caching
+   - All databases in private subnets for security
 
-6. *Public Access*:
-   - Public IPs with Azure DNS labels
-   - Custom domain management via Azure DNS Zone
+4. *DNS & Networking*:
+   - Route 53 for domain management
+   - Elastic IPs for static public addresses
+   - HTTPS setup with Let's Encrypt
 
-7. *Connections*:
-   - Frontend connects to Backend
-   - Backend connects to all database services
-   - Both VMs can pull code from GitHub repositories
+### Key AWS-Specific Features
 
-8. Service Endpoints: 
-   - Added explicit service endpoints to both the Backend and Database subnets showing exactly which Azure services they connect to (Microsoft.AzureCosmosDB and Microsoft.Sql)
+Unlike the Azure version, the AWS implementation includes:
 
-9. Redis Cache:
-   - Updated to note that it uses a unique name with a random suffix (to avoid naming conflicts)
+1. *Multi-AZ Setup*: Resources spread across two availability zones for better reliability
+2. *NAT Gateway*: Provides private subnet connectivity to the internet
+3. *DocumentDB*: AWS's managed service compatible with MongoDB
+4. *Elastic IPs*: Ensures your public IP addresses remain static even if instances restart
+
+## Deployment Instructions
+
+The deployment process is similar to Azure:
+1. Configure your AWS credentials
+2. Set up your terraform.tfvars file
+3. Run terraform commands to create the infrastructure
+4. Deploy your GitHub SSH key to access repositories
+5. The scripts will handle building Docker images and setting up applications
+
+## Next Steps
+
+To deploy this infrastructure:
+1. Review the Terraform configuration files to ensure they meet your needs
+2. Update the AMI ID to the latest Ubuntu version in your chosen region
+3. Follow the detailed steps in the AWS Deployment Guide
+
 
 The diagram visually represents the security boundaries, network segmentation, and service interconnections in your infrastructure.
 
@@ -48,82 +62,97 @@ flowchart TB
         GitHub[("GitHub Repositories\n- adherelive-web\n- adherelive-fe")]
     end
 
-    subgraph Azure["Azure Cloud"]
-        subgraph RG["Resource Group (adherelive-rg)"]
-            subgraph Network["Virtual Network (10.0.0.0/16)"]
-                subgraph FrontendSubnet["Frontend Subnet\n10.0.2.0/24"]
-                    FrontendVM[["Frontend VM\n- Ubuntu 18.04\n- Docker\n- Nginx\n- Let's Encrypt"]]
-                    FrontendNIC[/"Frontend NIC"/]
+    subgraph AWS["AWS Cloud"]
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            subgraph PublicSubnets["Public Subnets"]
+                PublicSubnetA["Public Subnet A\n10.0.1.0/24"]
+                PublicSubnetB["Public Subnet B\n10.0.2.0/24"]
+                
+                FrontendEC2["Frontend EC2\nUbuntu + Nginx + Docker"]
+                BackendEC2["Backend EC2\nUbuntu + Nginx + Node.js"]
+                
+                PublicSubnetA --> FrontendEC2
+                PublicSubnetA --> BackendEC2
+            end
+            
+            subgraph PrivateSubnets["Private Subnets"]
+                PrivateSubnetA["Private Subnet A\n10.0.3.0/24"]
+                PrivateSubnetB["Private Subnet B\n10.0.4.0/24"]
+                
+                subgraph DatabaseServices["Database Services"]
+                    RDS[("RDS MySQL\nadhere database")]
+                    DocumentDB[("DocumentDB\nMongoDB API")]
+                    ElastiCache[("ElastiCache Redis\nCache layer")]
                 end
-
-                subgraph BackendSubnet["Backend Subnet\n10.0.1.0/24"]
-                    BackendVM[["Backend VM\n- Ubuntu 18.04\n- Docker\n- Nginx\n- Node.js"]]
-                    BackendNIC[/"Backend NIC"/]
-                    BackendEndpoints[/"Service Endpoints:\n- Microsoft.AzureCosmosDB\n- Microsoft.Sql"/]
-                end
-
-                subgraph DatabaseSubnet["Database Subnet\n10.0.3.0/24"]
-                    DatabaseEndpoints[/"Service Endpoints:\n- Microsoft.Sql\n- Microsoft.AzureCosmosDB"/]
-                end
+                
+                PrivateSubnetA --- DatabaseServices
+                PrivateSubnetB --- DatabaseServices
             end
-
-            subgraph PublicEndpoints["Public Endpoints"]
-                FrontendIP["Frontend Public IP\nal-frontend.eastus.cloudapp.azure.com"]
-                BackendIP["Backend Public IP\nal-backend.eastus.cloudapp.azure.com"]
+            
+            subgraph NetworkComponents["Network Components"]
+                IGW["Internet Gateway"]
+                NATGW["NAT Gateway"]
+                RouteTablePublic["Public Route Table"]
+                RouteTablePrivate["Private Route Table"]
+                
+                SecurityGroups["Security Groups\n- Frontend SG\n- Backend SG\n- Database SG"]
             end
-
-            subgraph SecurityGroups["Network Security Groups"]
-                FrontendNSG["Frontend NSG\n- HTTP (80)\n- HTTPS (443)\n- SSH (22)"]
-                BackendNSG["Backend NSG\n- API Port (5000)\n- SSH (22)"]
-            end
-
-            subgraph PaaS["Platform Services"]
-                MySQL[("MySQL Flexible Server\n- adhere database\n- B_Standard_B1s")]
-                CosmosDB[("Azure Cosmos DB\n- MongoDB API\n- adhere database")]
-                Redis[("Azure Redis Cache\n- Basic tier\n- TLS enabled\n- Unique name with random suffix")]
-            end
-
-            DNS["Azure DNS Zone\nadherelive.com"]
+        end
+        
+        subgraph Route53["Route53 DNS"]
+            DNSZone["DNS Zone\nadherelive.com"]
+            DNSRecords["DNS Records\n- @ (root domain)\n- www\n- api"]
+        end
+        
+        subgraph ElasticIPs["Elastic IPs"]
+            FrontendEIP["Frontend EIP"]
+            BackendEIP["Backend EIP"]
         end
     end
 
-    %% Network connections
-    Users --> FrontendIP
-    FrontendIP --> FrontendNIC
-    FrontendNIC --> FrontendVM
-    FrontendNSG -.- FrontendSubnet
+    Users -- "HTTPS" --> FrontendEIP
+    Users -- "HTTPS API Calls" --> BackendEIP
+    
+    FrontendEIP --> FrontendEC2
+    BackendEIP --> BackendEC2
+    
+    GitHub --> FrontendEC2
+    GitHub --> BackendEC2
+    
+    FrontendEC2 --- BackendEC2
+    
+    BackendEC2 --> RDS
+    BackendEC2 --> DocumentDB
+    BackendEC2 --> ElastiCache
+    
+    IGW --- PublicSubnets
+    NATGW --- PrivateSubnets
+    
+    RouteTablePublic --- PublicSubnets
+    RouteTablePrivate --- PrivateSubnets
+    
+    SecurityGroups --- FrontendEC2
+    SecurityGroups --- BackendEC2
+    SecurityGroups --- DatabaseServices
+    
+    Route53 --- FrontendEIP
+    Route53 --- BackendEIP
 
-    Users --> BackendIP
-    BackendIP --> BackendNIC
-    BackendNIC --> BackendVM
-    BackendNSG -.- BackendSubnet
+    classDef aws fill:#FF9900,stroke:#fff,stroke-width:2px,color:#fff
+    classDef ec2 fill:#F1C232,stroke:#333,stroke-width:2px,color:#000
+    classDef database fill:#8E24AA,stroke:#fff,stroke-width:2px,color:#fff
+    classDef networking fill:#5A9BD5,stroke:#333,stroke-width:2px,color:#000
+    classDef subnet fill:#D9EAD3,stroke:#333,stroke-width:1px,color:#000
+    classDef secgroup fill:#F6B26B,stroke:#333,stroke-width:2px,color:#000
+    classDef public fill:#A4C2F4,stroke:#333,stroke-width:1px,color:#000
+    classDef private fill:#D5A6BD,stroke:#333,stroke-width:1px,color:#000
 
-    FrontendVM --> BackendVM
-    BackendVM --> MySQL
-    BackendVM --> CosmosDB
-    BackendVM --> Redis
-
-    GitHub --> FrontendVM
-    GitHub --> BackendVM
-
-    DNS --> FrontendIP
-    DNS --> BackendIP
-
-    DatabaseEndpoints --> MySQL
-    DatabaseEndpoints --> CosmosDB
-
-    classDef azure fill:#0072C6,stroke:#fff,stroke-width:2px,color:#fff
-    classDef vm fill:#50e6ff,stroke:#0072C6,stroke-width:2px,color:#000
-    classDef database fill:#f9f,stroke:#333,stroke-width:2px,color:#000
-    classDef subnet fill:#bfecff,stroke:#0072C6,stroke-width:1px
-    classDef security fill:#ffd700,stroke:#666,stroke-width:2px,color:#000
-    classDef network fill:#e1f5fe,stroke:#0072C6,stroke-width:1px
-    classDef public fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
-
-    class Azure azure
-    class FrontendVM,BackendVM vm
-    class MySQL,CosmosDB,Redis database
-    class FrontendSubnet,BackendSubnet,DatabaseSubnet subnet
-    class FrontendNSG,BackendNSG security
-    class Network network
-    class FrontendIP,BackendIP public
+    class AWS,VPC aws
+    class FrontendEC2,BackendEC2 ec2
+    class RDS,DocumentDB,ElastiCache database
+    class IGW,NATGW,RouteTablePublic,RouteTablePrivate,FrontendEIP,BackendEIP networking
+    class PublicSubnetA,PublicSubnetB subnet
+    class PrivateSubnetA,PrivateSubnetB subnet
+    class SecurityGroups secgroup
+    class PublicSubnets public
+    class PrivateSubnets private
