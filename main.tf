@@ -100,7 +100,6 @@ resource "aws_route_table_association" "public_b" {
 
 # Create NAT Gateway
 resource "aws_eip" "nat_eip" {
-  domain = "vpc"
   tags = {
     Name = "${var.prefix}-nat-eip"
   }
@@ -407,7 +406,6 @@ resource "aws_route53_zone" "main" {
 
 # Allocate Elastic IPs for instances
 resource "aws_eip" "frontend_eip" {
-  domain = "vpc"
   instance = aws_instance.frontend.id
   
   tags = {
@@ -416,7 +414,6 @@ resource "aws_eip" "frontend_eip" {
 }
 
 resource "aws_eip" "backend_eip" {
-  domain = "vpc"
   instance = aws_instance.backend.id
   
   tags = {
