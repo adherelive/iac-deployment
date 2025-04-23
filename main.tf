@@ -184,13 +184,19 @@ resource "azurerm_mysql_flexible_server" "mysql" {
   administrator_password       = var.mysql_admin_password
 
   sku_name   = "B_Standard_B1ms"  # Changed to B1ms which is more commonly available
-  version    = "8.0"  # Try MySQL 5.7 instead of 8.0
+  version    = "5.7"  # Try MySQL 5.7 instead of 8.0
 
   backup_retention_days        = 7
   geo_redundant_backup_enabled = false
   
   storage {
     size_gb = 20
+  }
+
+  lifecycle {
+    ignore_changes = [
+      zone,
+    ]
   }
 }
 
@@ -399,4 +405,9 @@ output "cosmosdb_primary_key" {
 
 output "redis_hostname" {
   value = azurerm_redis_cache.redis.hostname
+}
+
+output "redis_primary_access_key" {
+  value     = azurerm_redis_cache.redis.primary_access_key
+  sensitive = true
 }
