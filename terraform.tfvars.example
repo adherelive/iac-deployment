@@ -1,18 +1,18 @@
 # Rename this file to terraform.tfvars and update the values accordingly
 
 # Azure resource details
-prefix              = "adherelive"
-location            = "East US"
-resource_group_name = "adherelive-rg"
+prefix              = "al"
+location            = "Central India"
+resource_group_name = "adherelive-uat"
 
 # Admin details
 admin_username      = "azureuser"
 ssh_public_key_path = "~/.ssh/id_rsa.pub"
-admin_ip_address    = "YOUR_IP_ADDRESS_HERE"  # Use your IP for secure SSH access or keep "*" for any IP
+admin_ip_address    = "110.33.73.187"  # Use your IP for secure SSH access or keep "*" for any IP
 
 # Database details
 mysql_admin_password = "StrongP@ssw0rd123!"  # Replace with a secure password
 
 # Domain details
-domain_name         = "adherelive.com"  # Replace with your actual domain
-email               = "your-email@example.com"  # Replace with your email for Let's Encrypt
+domain_name         = "uat.adhere.live"  # Replace with your actual domain. Must have at least two labels separated by a dot
+email               = "gagneet.singh@adhere.live"  # Replace with your email for Let's Encrypt
