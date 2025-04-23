@@ -29,8 +29,8 @@ variable "github_ssh_key_path" {
 }
 
 variable "admin_ip_address" {
-  description = "The IP address range that can be used to SSH to the EC2 instances"
-  default     = "0.0.0.0/0" # Ideally, restrict to your IP address
+  description = "The IP address that can be used to SSH to the EC2 instances (without /32 suffix)"
+  default     = "0.0.0.0" # Ideally, restrict to your IP address
 }
 
 variable "mysql_admin_password" {

@@ -3,12 +3,12 @@
 # AWS configuration
 region              = "us-east-1"
 prefix              = "al"
-ami_id              = "ami-0c55b159cbfafe1f0" # Replace with a valid Ubuntu AMI for your region
+ami_id              = "ami-084568db4383264d4" # Replace with a valid Ubuntu AMI for your region
 
 # Admin details
 admin_username      = "ubuntu"
 ssh_public_key_path = "~/.ssh/id_rsa.pub"
-admin_ip_address    = "YOUR_IP_ADDRESS/32"  # Replace with your IP address for secure SSH access
+admin_ip_address    = "YOUR_IP_ADDRESS"  # Replace with your IP address for secure SSH access
 
 # Database details
 mysql_admin_password    = "StrongP@ssw0rd123!"  # Must contain uppercase, lowercase, numbers and special characters

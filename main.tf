@@ -163,7 +163,7 @@ resource "aws_security_group" "frontend_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_ip_address]
+    cidr_blocks = ["${var.admin_ip_address}/32"]
   }
 
   egress {
@@ -194,7 +194,7 @@ resource "aws_security_group" "backend_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.admin_ip_address]
+    cidr_blocks = ["${var.admin_ip_address}/32"]
   }
 
   egress {
@@ -314,6 +314,13 @@ resource "aws_db_subnet_group" "mysql" {
     Name = "${var.prefix}-mysql-subnet-group"
   }
 }
+
+# Automatically generate a compliant password, uncomment the below
+#resource "random_password" "mysql_password" {
+#  length           = 16
+#  special          = true
+#  override_special = "!#$%&*()-_=+[]{}<>:?"
+#}
 
 resource "aws_db_instance" "mysql" {
   identifier              = "${var.prefix}-mysql"
