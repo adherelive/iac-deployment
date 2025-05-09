@@ -1,9 +1,14 @@
 # Rename this file to terraform.tfvars and update the values accordingly
 
-# AWS configuration
+# Primary region AWS configuration
 region              = "us-east-1"
 prefix              = "al"
-ami_id              = "ami-084568db4383264d4" # Replace with a valid Ubuntu AMI for your region
+ami_id              = "ami-0aa2b7722dc1b5612" # Ubuntu 20.04 LTS in us-east-1 -- Replace with a valid Ubuntu AMI for your region
+
+# DR region configuration
+secondary_region    = "us-west-2"
+dr_ami_id           = "ami-03d5c68bab01f3496" # Ubuntu 20.04 LTS in us-west-2
+dr_mode             = "pilot-light"           # Options: "pilot-light" or "active-passive"
 
 # Admin details
 admin_username      = "ubuntu"
