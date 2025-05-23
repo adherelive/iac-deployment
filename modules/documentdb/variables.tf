@@ -35,6 +35,25 @@ variable "master_password" {
   sensitive   = true
 }
 
+variable "mongodb_database" {
+  description = "MongoDB database name"
+  type        = string
+  default     = "adhere"
+}
+
+variable "mongodb_username" {
+  description = "Database username"
+  type        = string
+  default     = "adherelive"
+}
+
+variable "mongodb_password" {
+  description = "Database password"
+  type        = string
+  sensitive   = true
+  default     = "Str0ngP4ssword123@"
+}
+
 variable "instance_class" {
   description = "DocumentDB instance class"
   type        = string
@@ -62,22 +81,6 @@ variable "tags" {
 variable "db_name" {
   description = "Database name"
   type        = string
-}
-
-variable "mongodb_database" {
-  description = "Database name"
-  type        = string
-}
-
-variable "mongodb_username" {
-  description = "Database username"
-  type        = string
-}
-
-variable "mongodb_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
 }
 
 variable "enable_encryption" {

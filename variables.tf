@@ -115,6 +115,13 @@ variable "mysql_password" {
   sensitive   = true
 }
 
+# MongoDB Database Configuration
+variable "mongodb_database" {
+  description = "MongoDB database name"
+  type        = string
+  default     = "adhere"
+}
+
 # Database Configuration - MongoDB (DocumentDB)
 variable "mongodb_username" {
   description = "MongoDB master username"

@@ -336,7 +336,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = 5000
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 
   tags = var.tags
 }
@@ -360,7 +360,7 @@ resource "aws_ecs_service" "frontend" {
     container_port   = 80
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 
   tags = var.tags
 }

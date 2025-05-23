@@ -107,27 +107,9 @@ module "documentdb" {
   private_subnet_ids   = module.vpc.private_subnet_ids
   security_group_ids   = [module.security_groups.documentdb_security_group_id]
   
-  db_name = var.mongodb_database
-  # db_username = var.mongodb_username
-  # db_password = var.mongodb_password
-  # db_port = var.mongodb_port
-  # db_instance_class = var.mongodb_instance_class
-  # db_instance_count = var.mongodb_instance_count
-  # db_engine = var.mongodb_engine
-  # db_engine_version = var.mongodb_engine_version
-  # db_cluster_identifier = "${local.name_prefix}-${local.environment}-documentdb"
-  # db_cluster_instance_type = var.mongodb_instance_class
-  # db_cluster_instance_count = var.mongodb_instance_count
-  # db_cluster_port = var.mongodb_port
-  # db_cluster_username = var.mongodb_username
-  # db_cluster_password = var.mongodb_password
-  # db_cluster_name = "${local.name_prefix}-${local.environment}-documentdb-cluster"
-
   master_username  = var.mongodb_username
   master_password  = var.mongodb_password
   mongodb_database = var.mongodb_database
-  mongodb_password = var.mongodb_password
-  mongodb_username = var.mongodb_username
   
   tags = local.common_tags
 }

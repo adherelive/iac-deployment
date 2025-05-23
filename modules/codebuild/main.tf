@@ -204,14 +204,12 @@ resource "aws_s3_bucket_versioning" "codebuild_artifacts" {
   }
 }
 
-resource "aws_s3_bucket_encryption" "codebuild_artifacts" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "codebuild_artifacts" {
   bucket = aws_s3_bucket.codebuild_artifacts.id
 
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
     }
   }
 }
@@ -317,6 +315,8 @@ resource "aws_codebuild_project" "backend" {
 
     auth {
       type = "OAUTH"
+      resource = "https://github.com/adherelive/adherelive-web/tree/akshay-gaurav-latest-changes"
+      # Note: Uncomment if using SSH keys
     }
 
     buildspec = "buildspec-backend.yml"
@@ -387,6 +387,8 @@ resource "aws_codebuild_project" "frontend" {
 
     auth {
       type = "OAUTH"
+      resource = "https://github.com/adherelive/adherelive-fe/tree/akshay-gaurav-latest-changes"
+      # Note: Uncomment if using SSH keys
     }
 
     buildspec = "buildspec-frontend.yml"
