@@ -1,67 +1,139 @@
-########################
-# Outputs
-########################
-output "frontend_public_ip" {
-  value = aws_eip.frontend_eip.public_ip
+# outputs.tf - Terraform Outputs
+
+# VPC Outputs
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.vpc.vpc_id
 }
 
-output "backend_public_ip" {
-  value = aws_eip.backend_eip.public_ip
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = module.vpc.vpc_cidr_block
 }
 
-output "cloudfront_frontend_domain" {
-  value = aws_cloudfront_distribution.frontend.domain_name
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.vpc.public_subnet_ids
 }
 
-output "cloudfront_backend_domain" {
-  value = aws_cloudfront_distribution.backend.domain_name
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.vpc.private_subnet_ids
 }
 
+output "database_subnet_ids" {
+  description = "IDs of the database subnets"
+  value       = module.vpc.database_subnet_ids
+}
+
+# CodeBuild Outputs
+output "backend_ecr_repository_url" {
+  description = "Backend ECR repository URL"
+  value       = module.codebuild.backend_ecr_repository_url
+}
+
+output "frontend_ecr_repository_url" {
+  description = "Frontend ECR repository URL"
+  value       = module.codebuild.frontend_ecr_repository_url
+}
+
+output "backend_codebuild_project_name" {
+  description = "Backend CodeBuild project name"
+  value       = module.codebuild.backend_codebuild_project_name
+}
+
+output "frontend_codebuild_project_name" {
+  description = "Frontend CodeBuild project name"
+  value       = module.codebuild.frontend_codebuild_project_name
+}
+
+# Load Balancer Outputs
+output "alb_dns_name" {
+  description = "DNS name of the load balancer"
+  value       = module.ecs.alb_dns_name
+}
+
+output "alb_zone_id" {
+  description = "Zone ID of the load balancer"
+  value       = module.ecs.alb_zone_id
+}
+
+output "application_url" {
+  description = "URL of the application"
+  value       = "https://${var.subdomain}.${var.domain_name}"
+}
+
+# ECS Outputs
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.ecs.cluster_name
+}
+
+output "backend_service_name" {
+  description = "Name of the backend ECS service"
+  value       = module.ecs.backend_service_name
+}
+
+output "frontend_service_name" {
+  description = "Name of the frontend ECS service"
+  value       = module.ecs.frontend_service_name
+}
+
+# Database Outputs
 output "mysql_endpoint" {
-  value = aws_db_instance.mysql.endpoint
+  description = "RDS MySQL endpoint"
+  value       = module.rds.endpoint
 }
 
-output "mongodb_endpoint" {
-  value = aws_docdb_cluster.mongodb.endpoint
+output "mysql_port" {
+  description = "RDS MySQL port"
+  value       = module.rds.port
 }
 
-output "mongodb_username" {
-  value = aws_docdb_cluster.mongodb.master_username
+output "documentdb_endpoint" {
+  description = "DocumentDB cluster endpoint"
+  value       = module.documentdb.endpoint
 }
 
-output "mongodb_password" {
-  value     = var.mongodb_admin_password
-  sensitive = true
+output "documentdb_port" {
+  description = "DocumentDB port"
+  value       = module.documentdb.port
 }
 
-output "redis_endpoint" {
-  value = aws_elasticache_cluster.redis.cache_nodes.0.address
+# Security Group Outputs
+output "alb_security_group_id" {
+  description = "ID of the ALB security group"
+  value       = module.security_groups.alb_security_group_id
 }
 
-output "redis_port" {
-  value = aws_elasticache_cluster.redis.cache_nodes.0.port
+output "ecs_security_group_id" {
+  description = "ID of the ECS security group"
+  value       = module.security_groups.ecs_security_group_id
 }
 
-output "route53_nameservers" {
-  value = aws_route53_zone.main.name_servers
+output "rds_security_group_id" {
+  description = "ID of the RDS security group"
+  value       = module.security_groups.rds_security_group_id
 }
 
-output "dynamodb_table_name" {
-  value = aws_dynamodb_table.sessions.name
+output "documentdb_security_group_id" {
+  description = "ID of the DocumentDB security group"
+  value       = module.security_groups.documentdb_security_group_id
 }
 
-output "s3_static_assets_bucket" {
-  value = aws_s3_bucket.static_assets.bucket
+# Certificate Output
+output "certificate_arn" {
+  description = "ARN of the SSL certificate"
+  value       = module.acm.certificate_arn
 }
 
-output "dr_status" {
-  value = "DR environment is configured in ${var.dr_mode} mode in ${var.secondary_region}"
+# Route53 Outputs
+output "hosted_zone_id" {
+  description = "Route53 hosted zone ID"
+  value       = module.route53.hosted_zone_id
 }
 
-output "dr_frontend_public_ip" {
-  value = var.dr_mode == "active-passive" ? aws_eip.dr_frontend_eip[0].public_ip : "Not deployed in pilot-light mode"
-}
-
-output "dr_backend_public_ip" {
-  value = var.dr_mode == "active-passive" ? aws_eip.dr_backend_eip[0].public_ip : "Not deployed in pilot-light mode"
+output "dns_name" {
+  description = "DNS name for the application"
+  value       = "${var.subdomain}.${var.domain_name}"
 }

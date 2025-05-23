@@ -1,267 +1,174 @@
+# main.tf - Root Terraform Configuration for AdhereLive Application
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  
+  # Uncomment after creating S3 bucket for state management
+  # backend "s3" {
+  #   bucket = "adherelive-terraform-state"
+  #   key    = "prod/terraform.tfstate"
+  #   region = "ap-south-1"
+  #   encrypt = true
+  # }
+}
+
 provider "aws" {
-  region = var.region
+  region  = var.aws_region
+  profile = var.aws_profile # Optional: use if you have AWS CLI profiles
 }
 
-# Provider for CloudFront certificates (must be in us-east-1)
-provider "aws" {
-  alias  = "us-east-1"
-  region = "us-east-1"
+# Data sources
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
-# Provider for secondary region
-provider "aws" {
-  alias  = "dr_region"
-  region = var.secondary_region
-}
+data "aws_caller_identity" "current" {}
 
-resource "random_string" "unique_suffix" {
-  length  = 6
-  special = false
-  upper   = false
-}
-
-#####################################
-# Primary Region Infrastructure
-#####################################
-
-# Create a VPC
-resource "aws_vpc" "adherelive_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "${var.prefix}-vpc"
+# Local values for consistent naming
+locals {
+  name_prefix = "adherelive"
+  environment = var.environment
+  
+  common_tags = {
+    Project     = "AdhereLive"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Owner       = "adherelive"
   }
 }
 
-# Create Internet Gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.adherelive_vpc.id
-
-  tags = {
-    Name = "${var.prefix}-igw"
-  }
+# CodeBuild Module for GitHub Integration
+module "codebuild" {
+  source = "./modules/codebuild"
+  
+  name_prefix    = local.name_prefix
+  environment    = local.environment
+  aws_region     = var.aws_region
+  
+  # Repository Configuration
+  backend_repo_url   = var.backend_repo_url
+  frontend_repo_url  = var.frontend_repo_url
+  backend_branch     = var.backend_branch
+  frontend_branch    = var.frontend_branch
+  image_tag          = var.image_tag
+  
+  tags = local.common_tags
 }
 
-# Create subnets
-resource "aws_subnet" "public_subnet_a" {
-  vpc_id                  = aws_vpc.adherelive_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "${var.region}a"
-
-  tags = {
-    Name = "${var.prefix}-public-subnet-a"
-  }
+# VPC Module
+module "vpc" {
+  source = "./modules/vpc"
+  
+  name_prefix         = local.name_prefix
+  environment        = local.environment
+  cidr_block         = var.vpc_cidr
+  availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
+  
+  tags = local.common_tags
 }
 
-resource "aws_subnet" "public_subnet_b" {
-  vpc_id                  = aws_vpc.adherelive_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "${var.region}b"
-
-  tags = {
-    Name = "${var.prefix}-public-subnet-b"
-  }
+# Security Groups Module
+module "security_groups" {
+  source = "./modules/security-groups"
+  
+  name_prefix = local.name_prefix
+  environment = local.environment
+  vpc_id      = module.vpc.vpc_id
+  
+  tags = local.common_tags
 }
 
-resource "aws_subnet" "private_subnet_a" {
-  vpc_id                  = aws_vpc.adherelive_vpc.id
-  cidr_block              = "10.0.3.0/24"
-  map_public_ip_on_launch = false
-  availability_zone       = "${var.region}a"
-
-  tags = {
-    Name = "${var.prefix}-private-subnet-a"
-  }
+# RDS Module (MySQL)
+module "rds" {
+  source = "./modules/rds"
+  
+  name_prefix           = local.name_prefix
+  environment          = local.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  security_group_ids   = [module.security_groups.rds_security_group_id]
+  
+  db_name     = var.mysql_database
+  db_username = var.mysql_username
+  db_password = var.mysql_password
+  
+  tags = local.common_tags
 }
 
-resource "aws_subnet" "private_subnet_b" {
-  vpc_id                  = aws_vpc.adherelive_vpc.id
-  cidr_block              = "10.0.4.0/24"
-  map_public_ip_on_launch = false
-  availability_zone       = "${var.region}b"
-
-  tags = {
-    Name = "${var.prefix}-private-subnet-b"
-  }
+# DocumentDB Module (MongoDB replacement)
+module "documentdb" {
+  source = "./modules/documentdb"
+  
+  name_prefix           = local.name_prefix
+  environment          = local.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  security_group_ids   = [module.security_groups.documentdb_security_group_id]
+  
+  master_username = var.mongodb_username
+  master_password = var.mongodb_password
+  
+  tags = local.common_tags
 }
 
-# Create route tables
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.adherelive_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "${var.prefix}-public-rt"
-  }
+# ECS Cluster Module
+module "ecs" {
+  source = "./modules/ecs"
+  
+  name_prefix           = local.name_prefix
+  environment          = local.environment
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_ids   = module.vpc.private_subnet_ids
+  public_subnet_ids    = module.vpc.public_subnet_ids
+  
+  # Security Groups
+  alb_security_group_id = module.security_groups.alb_security_group_id
+  ecs_security_group_id = module.security_groups.ecs_security_group_id
+  
+  # Database connections
+  mysql_endpoint    = module.rds.endpoint
+  documentdb_endpoint = module.documentdb.endpoint
+  
+  # Application configuration
+  backend_image    = "${module.codebuild.backend_ecr_repository_url}:${var.image_tag}"
+  frontend_image   = "${module.codebuild.frontend_ecr_repository_url}:${var.image_tag}"
+  domain_name      = var.domain_name
+  subdomain        = var.subdomain
+  
+  # Environment variables
+  mysql_database   = var.mysql_database
+  mysql_username   = var.mysql_username
+  mysql_password   = var.mysql_password
+  mongodb_username = var.mongodb_username
+  mongodb_password = var.mongodb_password
+  
+  tags = local.common_tags
 }
 
-# Associate route table with public subnets
-resource "aws_route_table_association" "public_a" {
-  subnet_id      = aws_subnet.public_subnet_a.id
-  route_table_id = aws_route_table.public_rt.id
+# ACM Certificate Module
+module "acm" {
+  source = "./modules/acm"
+  
+  domain_name = "${var.subdomain}.${var.domain_name}"
+  
+  tags = local.common_tags
 }
 
-resource "aws_route_table_association" "public_b" {
-  subnet_id      = aws_subnet.public_subnet_b.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# Create NAT Gateway
-resource "aws_eip" "nat_eip" {
-  tags = {
-    Name = "${var.prefix}-nat-eip"
-  }
-}
-
-resource "aws_nat_gateway" "nat_gw" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public_subnet_a.id
-
-  tags = {
-    Name = "${var.prefix}-nat-gw"
-  }
-}
-
-# Create private route table with NAT Gateway
-resource "aws_route_table" "private_rt" {
-  vpc_id = aws_vpc.adherelive_vpc.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gw.id
-  }
-
-  tags = {
-    Name = "${var.prefix}-private-rt"
-  }
-}
-
-# Associate route table with private subnets
-resource "aws_route_table_association" "private_a" {
-  subnet_id      = aws_subnet.private_subnet_a.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-resource "aws_route_table_association" "private_b" {
-  subnet_id      = aws_subnet.private_subnet_b.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-# Create security groups
-resource "aws_security_group" "frontend_sg" {
-  name        = "${var.prefix}-frontend-sg"
-  description = "Security group for frontend server"
-  vpc_id      = aws_vpc.adherelive_vpc.id
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["${var.admin_ip_address}/32"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.prefix}-frontend-sg"
-  }
-}
-
-resource "aws_security_group" "backend_sg" {
-  name        = "${var.prefix}-backend-sg"
-  description = "Security group for backend server"
-  vpc_id      = aws_vpc.adherelive_vpc.id
-
-  ingress {
-    from_port   = 5000
-    to_port     = 5000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["${var.admin_ip_address}/32"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.prefix}-backend-sg"
-  }
-}
-
-resource "aws_security_group" "db_sg" {
-  name        = "${var.prefix}-db-sg"
-  description = "Security group for databases"
-  vpc_id      = aws_vpc.adherelive_vpc.id
-
-  # MySQL
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.backend_sg.id]
-  }
-
-  # MongoDB
-  ingress {
-    from_port       = 27017
-    to_port         = 27017
-    protocol        = "tcp"
-    security_groups = [aws_security_group.backend_sg.id]
-  }
-
-  # Redis
-  ingress {
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.backend_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.prefix}-db-sg"
-  }
+# Route53 Module
+module "route53" {
+  source = "./modules/route53"
+  
+  domain_name       = var.domain_name
+  subdomain         = var.subdomain
+  alb_dns_name      = module.ecs.alb_dns_name
+  alb_zone_id       = module.ecs.alb_zone_id
+  certificate_arn   = module.acm.certificate_arn
+  
+  tags = local.common_tags
 }
