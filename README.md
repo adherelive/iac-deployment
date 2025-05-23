@@ -89,3 +89,47 @@ After the infrastructure is ready, we'll need to:
 4. Run the deployment scripts
 
 The initialization scripts created install all necessary dependencies and set up continuous deployment through cron jobs, which will also handle SSL certificate renewal.
+
+
+No Infrastructure Blocking ✅
+
+Terraform will deploy successfully without domain configuration
+Your application will be accessible immediately via ALB DNS name
+You can test and develop while DNS propagates
+
+Phased Approach:
+
+Phase 1 (Immediate): Deploy infrastructure, access via ALB DNS
+Phase 2 (When ready): Configure domain in GoDaddy or transfer to Route53
+Phase 3 (After DNS works): Enable SSL certificate
+
+Domain Configuration Options:
+Option A (Recommended): Transfer DNS to Route53
+
+Automatic SSL certificate validation
+Better AWS integration
+No manual IP management needed
+
+Option B: Keep GoDaddy DNS
+
+Add CNAME record: test → your-alb-dns-name.ap-south-1.elb.amazonaws.com
+No need for static IP addresses
+
+SSL Certificate Options:
+Recommended: AWS Certificate Manager (ACM)
+
+Free and automatic renewal
+Integrated with AWS services
+No manual management
+
+Alternative: Let's Encrypt (script provided)
+
+More complex setup
+Manual renewal management
+
+Key Benefits:
+✅ Deploy immediately - no waiting for DNS
+✅ Test while DNS propagates - use ALB DNS name
+✅ Gradual migration - add SSL after domain works
+✅ No static IP needed - ALB handles load balancing automatically
+The infrastructure uses an Application Load Balancer (ALB) which provides a DNS name rather than a static IP, making domain configuration much more flexible and reliable than traditional static IP setups.

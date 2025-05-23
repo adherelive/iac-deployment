@@ -70,8 +70,10 @@ resource "aws_lb_target_group" "frontend" {
   tags = var.tags
 }
 
-# HTTPS Listener
+# HTTPS Listener (conditional - only if certificate exists)
 resource "aws_lb_listener" "https" {
+  count = var.certificate_arn != "" ? 1 : 0
+  
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
@@ -86,28 +88,55 @@ resource "aws_lb_listener" "https" {
   tags = var.tags
 }
 
-# HTTP Listener (redirect to HTTPS)
+# HTTP Listener (redirect to HTTPS if cert exists, otherwise serve directly)
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
+    type = var.certificate_arn != "" ? "redirect" : "forward"
+    
+    dynamic "redirect" {
+      for_each = var.certificate_arn != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+    
+    target_group_arn = var.certificate_arn == "" ? aws_lb_target_group.frontend.arn : null
+  }
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+  tags = var.tags
+}
+
+# ALB Listener Rules for backend (works with both HTTP and HTTPS)
+resource "aws_lb_listener_rule" "backend_https" {
+  count = var.certificate_arn != "" ? 1 : 0
+  
+  listener_arn = aws_lb_listener.https[0].arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*"]
     }
   }
 
   tags = var.tags
 }
 
-# ALB Listener Rules
-resource "aws_lb_listener_rule" "backend" {
-  listener_arn = aws_lb_listener.https.arn
+resource "aws_lb_listener_rule" "backend_http" {
+  count = var.certificate_arn == "" ? 1 : 0
+  
+  listener_arn = aws_lb_listener.http.arn
   priority     = 100
 
   action {

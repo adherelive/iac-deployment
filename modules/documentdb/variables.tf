@@ -64,6 +64,22 @@ variable "db_name" {
   type        = string
 }
 
+variable "mongodb_database" {
+  description = "Database name"
+  type        = string
+}
+
+variable "mongodb_username" {
+  description = "Database username"
+  type        = string
+}
+
+variable "mongodb_password" {
+  description = "Database password"
+  type        = string
+  sensitive   = true
+}
+
 variable "enable_encryption" {
   description = "Enable encryption at rest"
   type        = bool

@@ -39,6 +39,19 @@ variable "subdomain" {
   default     = "test"
 }
 
+# SSL Configuration
+variable "enable_ssl" {
+  description = "Enable SSL certificate and HTTPS"
+  type        = bool
+  default     = false
+}
+
+variable "ssl_certificate_arn" {
+  description = "ARN of existing SSL certificate (optional)"
+  type        = string
+  default     = ""
+}
+
 # GitHub Repository Configuration
 variable "backend_repo_url" {
   description = "GitHub repository URL for backend"

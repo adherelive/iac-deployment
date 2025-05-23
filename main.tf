@@ -110,7 +110,8 @@ module "documentdb" {
   vpc_id               = module.vpc.vpc_id
   private_subnet_ids   = module.vpc.private_subnet_ids
   security_group_ids   = [module.security_groups.documentdb_security_group_id]
-  
+
+  db_name         = var.mongodb_database
   master_username = var.mongodb_username
   master_password = var.mongodb_password
   
@@ -151,24 +152,26 @@ module "ecs" {
   tags = local.common_tags
 }
 
-# ACM Certificate Module
-module "acm" {
-  source = "./modules/acm"
-  
-  domain_name = "${var.subdomain}.${var.domain_name}"
-  
-  tags = local.common_tags
-}
+# ACM Certificate Module (commented out initially for domain setup)
+# Uncomment after DNS is configured
+# module "acm" {
+#   source = "./modules/acm"
+#   
+#   domain_name = "${var.subdomain}.${var.domain_name}"
+#   
+#   tags = local.common_tags
+# }
 
-# Route53 Module
-module "route53" {
-  source = "./modules/route53"
-  
-  domain_name       = var.domain_name
-  subdomain         = var.subdomain
-  alb_dns_name      = module.ecs.alb_dns_name
-  alb_zone_id       = module.ecs.alb_zone_id
-  certificate_arn   = module.acm.certificate_arn
-  
-  tags = local.common_tags
-}
+# Route53 Module (commented out initially for domain setup)  
+# Uncomment after DNS is configured
+# module "route53" {
+#   source = "./modules/route53"
+#   
+#   domain_name       = var.domain_name
+#   subdomain         = var.subdomain
+#   alb_dns_name      = module.ecs.alb_dns_name
+#   alb_zone_id       = module.ecs.alb_zone_id
+#   certificate_arn   = module.acm.certificate_arn
+#   
+#   tags = local.common_tags
+# }
