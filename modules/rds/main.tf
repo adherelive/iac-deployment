@@ -1,4 +1,4 @@
-# modules/rds/main.tf - RDS Module
+# modules/rds/main.tf - RDS Module (Fixed)
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {
@@ -28,6 +28,24 @@ resource "aws_db_parameter_group" "main" {
   tags = var.tags
 }
 
+# Local values to determine Performance Insights support
+locals {
+  # Define instance classes that support Performance Insights
+  performance_insights_supported_classes = [
+    "db.t3.small", "db.t3.medium", "db.t3.large", "db.t3.xlarge", "db.t3.2xlarge",
+    "db.m5.large", "db.m5.xlarge", "db.m5.2xlarge", "db.m5.4xlarge", "db.m5.8xlarge", "db.m5.12xlarge", "db.m5.16xlarge", "db.m5.24xlarge",
+    "db.m6i.large", "db.m6i.xlarge", "db.m6i.2xlarge", "db.m6i.4xlarge", "db.m6i.8xlarge", "db.m6i.12xlarge", "db.m6i.16xlarge", "db.m6i.24xlarge", "db.m6i.32xlarge",
+    "db.r5.large", "db.r5.xlarge", "db.r5.2xlarge", "db.r5.4xlarge", "db.r5.8xlarge", "db.r5.12xlarge", "db.r5.16xlarge", "db.r5.24xlarge",
+    "db.r6i.large", "db.r6i.xlarge", "db.r6i.2xlarge", "db.r6i.4xlarge", "db.r6i.8xlarge", "db.r6i.12xlarge", "db.r6i.16xlarge", "db.r6i.24xlarge", "db.r6i.32xlarge"
+  ]
+
+  # Check if current instance class supports Performance Insights
+  performance_insights_enabled = contains(local.performance_insights_supported_classes, var.instance_class)
+
+  # Enhanced monitoring is also limited to certain instance classes
+  enhanced_monitoring_enabled = contains(local.performance_insights_supported_classes, var.instance_class)
+}
+
 # RDS Instance
 resource "aws_db_instance" "main" {
   identifier = "${var.name_prefix}-${var.environment}-mysql"
@@ -36,7 +54,7 @@ resource "aws_db_instance" "main" {
   engine         = "mysql"
   engine_version = "8.0.35"
   instance_class = var.instance_class
-  
+
   # Storage Configuration
   allocated_storage     = var.allocated_storage
   max_allocated_storage = var.max_allocated_storage
@@ -56,25 +74,26 @@ resource "aws_db_instance" "main" {
 
   # Backup Configuration
   backup_retention_period = var.backup_retention_period
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-  
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "sun:04:00-sun:05:00"
+
   # Multi-AZ Configuration
   multi_az = var.enable_multi_az
 
   # Parameter Group
   parameter_group_name = aws_db_parameter_group.main.name
 
-  # Monitoring
-  monitoring_interval = 60
-  monitoring_role_arn = aws_iam_role.enhanced_monitoring.arn
-  
-  performance_insights_enabled = true
-  performance_insights_retention_period = 7
+  # Conditional Monitoring based on instance class
+  monitoring_interval = local.enhanced_monitoring_enabled ? 60 : 0
+  monitoring_role_arn = local.enhanced_monitoring_enabled ? aws_iam_role.enhanced_monitoring[0].arn : null
+
+  # Conditional Performance Insights
+  performance_insights_enabled          = local.performance_insights_enabled
+  performance_insights_retention_period = local.performance_insights_enabled ? 7 : null
 
   # Deletion Configuration
-  deletion_protection     = false # Set to true for production
-  skip_final_snapshot    = true   # Set to false for production
+  deletion_protection       = false # Set to true for production
+  skip_final_snapshot       = true  # Set to false for production
   final_snapshot_identifier = "${var.name_prefix}-${var.environment}-mysql-final-snapshot"
 
   # Enable automated backups
@@ -85,9 +104,10 @@ resource "aws_db_instance" "main" {
   })
 }
 
-# Enhanced Monitoring Role
+# Enhanced Monitoring Role (conditional creation)
 resource "aws_iam_role" "enhanced_monitoring" {
-  name = "${var.name_prefix}-${var.environment}-rds-monitoring-role"
+  count = local.enhanced_monitoring_enabled ? 1 : 0
+  name  = "${var.name_prefix}-${var.environment}-rds-monitoring-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -106,7 +126,8 @@ resource "aws_iam_role" "enhanced_monitoring" {
 }
 
 resource "aws_iam_role_policy_attachment" "enhanced_monitoring" {
-  role       = aws_iam_role.enhanced_monitoring.name
+  count      = local.enhanced_monitoring_enabled ? 1 : 0
+  role       = aws_iam_role.enhanced_monitoring[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
@@ -121,7 +142,7 @@ resource "aws_cloudwatch_metric_alarm" "database_cpu" {
   statistic           = "Average"
   threshold           = "80"
   alarm_description   = "This metric monitors RDS CPU utilization"
-  
+
   dimensions = {
     DBInstanceIdentifier = aws_db_instance.main.id
   }
@@ -139,7 +160,7 @@ resource "aws_cloudwatch_metric_alarm" "database_connections" {
   statistic           = "Average"
   threshold           = "80"
   alarm_description   = "This metric monitors RDS connection count"
-  
+
   dimensions = {
     DBInstanceIdentifier = aws_db_instance.main.id
   }

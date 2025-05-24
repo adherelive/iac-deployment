@@ -18,7 +18,6 @@ resource "aws_route53_record" "main" {
     evaluate_target_health = true
   }
 
-  tags = var.tags
 }
 
 # Health check for the application
@@ -31,7 +30,7 @@ resource "aws_route53_health_check" "main" {
   request_interval                = "30"
   cloudwatch_alarm_region         = "ap-south-1"
   cloudwatch_alarm_name           = "${var.subdomain}-${var.domain_name}-health-check"
-  insufficient_data_health_status = "Failure"
+  insufficient_data_health_status = "Unhealthy"
 
   tags = merge(var.tags, {
     Name = "${var.subdomain}.${var.domain_name} Health Check"

@@ -27,13 +27,13 @@ variable "frontend_repo_url" {
 variable "backend_branch" {
   description = "Backend repository branch"
   type        = string
-  default     = "main"
+  default     = "akshay-gaurav-latest-changes"
 }
 
 variable "frontend_branch" {
   description = "Frontend repository branch"
   type        = string
-  default     = "main"
+  default     = "akshay-gaurav-latest-changes"
 }
 
 variable "image_tag" {

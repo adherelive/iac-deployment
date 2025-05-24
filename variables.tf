@@ -39,6 +39,12 @@ variable "subdomain" {
   default     = "test"
 }
 
+variable "hosted_zone_id" {
+  description = "Route 53 hosted zone ID for the domain"
+  type        = string
+  default     = "/hostedzone/Z07131103N7T1TNI3V05V"
+}
+
 # SSL Configuration
 variable "enable_ssl" {
   description = "Enable SSL certificate and HTTPS"

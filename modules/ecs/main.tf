@@ -27,10 +27,10 @@ resource "aws_lb" "main" {
 
 # Target Groups
 resource "aws_lb_target_group" "backend" {
-  name     = "${var.name_prefix}-${var.environment}-backend-tg"
-  port     = 5000
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.name_prefix}-${var.environment}-backend-tg"
+  port        = 5000
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
   target_type = "ip"
 
   health_check {
@@ -49,10 +49,10 @@ resource "aws_lb_target_group" "backend" {
 }
 
 resource "aws_lb_target_group" "frontend" {
-  name     = "${var.name_prefix}-${var.environment}-frontend-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.name_prefix}-${var.environment}-frontend-tg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
   target_type = "ip"
 
   health_check {
@@ -73,7 +73,7 @@ resource "aws_lb_target_group" "frontend" {
 # HTTPS Listener (conditional - only if certificate exists)
 resource "aws_lb_listener" "https" {
   count = var.certificate_arn != "" ? 1 : 0
-  
+
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
@@ -96,7 +96,7 @@ resource "aws_lb_listener" "http" {
 
   default_action {
     type = var.certificate_arn != "" ? "redirect" : "forward"
-    
+
     dynamic "redirect" {
       for_each = var.certificate_arn != "" ? [1] : []
       content {
@@ -105,7 +105,7 @@ resource "aws_lb_listener" "http" {
         status_code = "HTTP_301"
       }
     }
-    
+
     target_group_arn = var.certificate_arn == "" ? aws_lb_target_group.frontend.arn : null
   }
 
@@ -115,7 +115,7 @@ resource "aws_lb_listener" "http" {
 # ALB Listener Rules for backend (works with both HTTP and HTTPS)
 resource "aws_lb_listener_rule" "backend_https" {
   count = var.certificate_arn != "" ? 1 : 0
-  
+
   listener_arn = aws_lb_listener.https[0].arn
   priority     = 100
 
@@ -135,7 +135,7 @@ resource "aws_lb_listener_rule" "backend_https" {
 
 resource "aws_lb_listener_rule" "backend_http" {
   count = var.certificate_arn == "" ? 1 : 0
-  
+
   listener_arn = aws_lb_listener.http.arn
   priority     = 100
 
@@ -221,13 +221,13 @@ resource "aws_ecs_task_definition" "backend" {
   cpu                      = var.backend_cpu
   memory                   = var.backend_memory
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name  = "backend"
       image = var.backend_image
-      
+
       portMappings = [
         {
           containerPort = 5000
@@ -286,13 +286,13 @@ resource "aws_ecs_task_definition" "frontend" {
   cpu                      = var.frontend_cpu
   memory                   = var.frontend_memory
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name  = "frontend"
       image = var.frontend_image
-      
+
       portMappings = [
         {
           containerPort = 80

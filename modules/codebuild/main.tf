@@ -257,20 +257,20 @@ resource "aws_cloudwatch_log_group" "frontend_build" {
 
 # CodeBuild Project for Backend
 resource "aws_codebuild_project" "backend" {
-  name          = "${var.name_prefix}-${var.environment}-backend-build"
-  description   = "Build project for AdhereLive backend"
-  service_role  = aws_iam_role.codebuild_role.arn
+  name         = "${var.name_prefix}-${var.environment}-backend-build"
+  description  = "Build project for AdhereLive backend"
+  service_role = aws_iam_role.codebuild_role.arn
 
   artifacts {
     type = "NO_ARTIFACTS"
   }
 
   environment {
-    compute_type                = "BUILD_GENERAL1_MEDIUM"
-    image                      = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    type                       = "LINUX_CONTAINER"
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/standard:5.0"
+    type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
-    privileged_mode            = true
+    privileged_mode             = true
 
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
@@ -309,15 +309,17 @@ resource "aws_codebuild_project" "backend" {
     type            = "GITHUB"
     location        = var.backend_repo_url
     git_clone_depth = 1
-    git_submodules_config {
-      fetch_submodules = true
-    }
+    # Specify branch separately if needed
+    #source_version = "akshay-gaurav-latest-changes"  # Branch name here
+    # git_submodules_config {
+    #   fetch_submodules = true
+    # }
 
-    auth {
-      type = "OAUTH"
-      resource = "https://github.com/adherelive/adherelive-web/tree/akshay-gaurav-latest-changes"
-      # Note: Uncomment if using SSH keys
-    }
+    # auth {
+    #   type = "OAUTH"
+    #   resource = "https://github.com/adherelive/adherelive-web.git"
+    #   # Note: Uncomment if using SSH keys
+    # }
 
     buildspec = "buildspec-backend.yml"
   }
@@ -329,9 +331,9 @@ resource "aws_codebuild_project" "backend" {
 
 # CodeBuild Project for Frontend
 resource "aws_codebuild_project" "frontend" {
-  name          = "${var.name_prefix}-${var.environment}-frontend-build"
-  description   = "Build project for AdhereLive frontend"
-  service_role  = aws_iam_role.codebuild_role.arn
+  name         = "${var.name_prefix}-${var.environment}-frontend-build"
+  description  = "Build project for AdhereLive frontend"
+  service_role = aws_iam_role.codebuild_role.arn
 
   artifacts {
     type = "NO_ARTIFACTS"
@@ -339,10 +341,10 @@ resource "aws_codebuild_project" "frontend" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_MEDIUM"
-    image                      = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    type                       = "LINUX_CONTAINER"
+    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
-    privileged_mode            = true
+    privileged_mode             = true
 
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
@@ -381,15 +383,17 @@ resource "aws_codebuild_project" "frontend" {
     type            = "GITHUB"
     location        = var.frontend_repo_url
     git_clone_depth = 1
-    git_submodules_config {
-      fetch_submodules = true
-    }
+    # Specify branch separately if needed
+    #source_version = "akshay-gaurav-latest-changes"  # Branch name here
+    # git_submodules_config {
+    #   fetch_submodules = true
+    # }
 
-    auth {
-      type = "OAUTH"
-      resource = "https://github.com/adherelive/adherelive-fe/tree/akshay-gaurav-latest-changes"
-      # Note: Uncomment if using SSH keys
-    }
+    # auth {
+    #   type = "OAUTH"
+    #   resource = "https://github.com/adherelive/adherelive-fe.git"
+    #   # Note: Uncomment if using SSH keys
+    # }
 
     buildspec = "buildspec-frontend.yml"
   }
