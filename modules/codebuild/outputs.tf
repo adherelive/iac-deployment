@@ -19,10 +19,10 @@ output "frontend_codebuild_project_name" {
   value       = aws_codebuild_project.frontend.name
 }
 
-output "github_token_secret_arn" {
-  description = "GitHub token secret ARN"
-  value       = aws_secretsmanager_secret.github_token.arn
-}
+# output "github_token_secret_arn" {
+#   description = "GitHub token secret ARN"
+#   value       = aws_secretsmanager_secret.github_token.arn
+# }
 
 # output "ssh_private_key_secret_arn" {
 #   description = "SSH private key secret ARN"

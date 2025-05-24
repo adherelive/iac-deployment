@@ -221,13 +221,13 @@ resource "aws_s3_bucket_public_access_block" "codebuild_artifacts" {
 }
 
 # Secrets Manager for GitHub access
-resource "aws_secretsmanager_secret" "github_token" {
-  name                    = "${var.name_prefix}-${var.environment}-github-token"
-  description             = "GitHub personal access token for private repo access"
-  recovery_window_in_days = 7
+# resource "aws_secretsmanager_secret" "github_token" {
+#   name                    = "${var.name_prefix}-${var.environment}-github-token"
+#   description             = "GitHub personal access token for private repo access"
+#   recovery_window_in_days = 7
 
-  tags = var.tags
-}
+#   tags = var.tags
+# }
 
 # resource "aws_secretsmanager_secret" "ssh_private_key" {
 #   name                    = "${var.name_prefix}-${var.environment}-ssh-private-key"
