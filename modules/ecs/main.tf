@@ -258,7 +258,7 @@ resource "aws_ecs_task_definition" "backend" {
         },
         {
           name  = "MONGO_URI"
-          value = "mongodb://${var.mongodb_username}:${var.mongodb_password}@${var.documentdb_endpoint}:27017/${var.mysql_database}?authSource=admin&ssl=true"
+          value = "mongodb://${var.mongodb_username}:${var.mongodb_password}@${var.documentdb_endpoint}:27017/${var.mongodb_database}?authSource=admin&ssl=true"
         }
       ]
 

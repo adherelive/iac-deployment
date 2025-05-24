@@ -54,6 +54,8 @@ module "codebuild" {
   frontend_branch   = var.frontend_branch
   image_tag         = var.image_tag
 
+  codestar_connection_arn = var.codestar_connection_arn
+
   tags = local.common_tags
 }
 
@@ -170,26 +172,26 @@ module "ecs" {
 }
 
 # ACM Certificate Module (commented out initially for domain setup)
-# Uncomment after DNS is configured
-module "acm" {
-  source = "./modules/acm"
+# # Uncomment after DNS is configured
+# module "acm" {
+#   source = "./modules/acm"
   
-  domain_name = "${var.subdomain}.${var.domain_name}"
+#   domain_name = "${var.subdomain}.${var.domain_name}"
   
-  tags = local.common_tags
-}
+#   tags = local.common_tags
+# }
 
-# Route53 Module (commented out initially for domain setup)  
-# Uncomment after DNS is configured
-module "route53" {
-  source = "./modules/route53"
+# # Route53 Module (commented out initially for domain setup)  
+# # Uncomment after DNS is configured
+# module "route53" {
+#   source = "./modules/route53"
   
-  hosted_zone_id    = var.hosted_zone_id
-  domain_name       = var.domain_name
-  subdomain         = var.subdomain
-  alb_dns_name      = module.ecs.alb_dns_name
-  alb_zone_id       = module.ecs.alb_zone_id
-  certificate_arn   = module.acm.certificate_arn
+#   hosted_zone_id    = var.hosted_zone_id
+#   domain_name       = var.domain_name
+#   subdomain         = var.subdomain
+#   alb_dns_name      = module.ecs.alb_dns_name
+#   alb_zone_id       = module.ecs.alb_zone_id
+#   certificate_arn   = module.acm.certificate_arn
   
-  tags = local.common_tags
-}
+#   tags = local.common_tags
+# }

@@ -24,7 +24,7 @@ output "github_token_secret_arn" {
   value       = aws_secretsmanager_secret.github_token.arn
 }
 
-output "ssh_private_key_secret_arn" {
-  description = "SSH private key secret ARN"
-  value       = aws_secretsmanager_secret.ssh_private_key.arn
-}
+# output "ssh_private_key_secret_arn" {
+#   description = "SSH private key secret ARN"
+#   value       = aws_secretsmanager_secret.ssh_private_key.arn
+# }

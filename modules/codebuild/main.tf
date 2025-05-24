@@ -175,10 +175,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = [
-          aws_secretsmanager_secret.github_token.arn,
-          aws_secretsmanager_secret.ssh_private_key.arn
-        ]
+        Resource = "*"
       }
     ]
   })
@@ -232,13 +229,13 @@ resource "aws_secretsmanager_secret" "github_token" {
   tags = var.tags
 }
 
-resource "aws_secretsmanager_secret" "ssh_private_key" {
-  name                    = "${var.name_prefix}-${var.environment}-ssh-private-key"
-  description             = "SSH private key for GitHub access"
-  recovery_window_in_days = 7
+# resource "aws_secretsmanager_secret" "ssh_private_key" {
+#   name                    = "${var.name_prefix}-${var.environment}-ssh-private-key"
+#   description             = "SSH private key for GitHub access"
+#   recovery_window_in_days = 7
 
-  tags = var.tags
-}
+#   tags = var.tags
+# }
 
 # CloudWatch Log Groups for CodeBuild
 resource "aws_cloudwatch_log_group" "backend_build" {
@@ -292,11 +289,11 @@ resource "aws_codebuild_project" "backend" {
       value = var.image_tag
     }
 
-    environment_variable {
-      name  = "GITHUB_TOKEN"
-      value = aws_secretsmanager_secret.github_token.name
-      type  = "SECRETS_MANAGER"
-    }
+    # environment_variable {
+    #   name  = "GITHUB_TOKEN"
+    #   value = aws_secretsmanager_secret.github_token.name
+    #   type  = "SECRETS_MANAGER"
+    # }
   }
 
   logs_config {
@@ -322,6 +319,11 @@ resource "aws_codebuild_project" "backend" {
     # }
 
     buildspec = "buildspec-backend.yml"
+    
+    auth {
+      type     = "OAUTH"
+      resource = var.codestar_connection_arn
+    }
   }
 
   source_version = var.backend_branch
@@ -366,11 +368,11 @@ resource "aws_codebuild_project" "frontend" {
       value = var.image_tag
     }
 
-    environment_variable {
-      name  = "GITHUB_TOKEN"
-      value = aws_secretsmanager_secret.github_token.name
-      type  = "SECRETS_MANAGER"
-    }
+    # environment_variable {
+    #   name  = "GITHUB_TOKEN"
+    #   value = aws_secretsmanager_secret.github_token.name
+    #   type  = "SECRETS_MANAGER"
+    # }
   }
 
   logs_config {
@@ -396,6 +398,11 @@ resource "aws_codebuild_project" "frontend" {
     # }
 
     buildspec = "buildspec-frontend.yml"
+    
+    auth {
+      type     = "OAUTH"
+      resource = var.codestar_connection_arn
+    }
   }
 
   source_version = var.frontend_branch

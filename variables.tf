@@ -89,6 +89,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "codestar_connection_arn" {
+  description = "ARN of the AWS CodeStar Connection for GitHub access"
+  type        = string
+  default     = "" # Or prompt user to fill this in terraform.tfvars
+}
+
 # Application Configuration
 variable "backend_image" {
   description = "Docker image for backend service (auto-generated from CodeBuild)"
@@ -119,6 +125,7 @@ variable "mysql_password" {
   description = "MySQL master password"
   type        = string
   sensitive   = true
+  default     = "StrongP4ssword123!"
 }
 
 # MongoDB Database Configuration
@@ -139,6 +146,7 @@ variable "mongodb_password" {
   description = "MongoDB master password"
   type        = string
   sensitive   = true
+  default     = "StrongP4ssword123!"
 }
 
 # Scaling Configuration

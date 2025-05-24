@@ -116,6 +116,12 @@ variable "mysql_password" {
   sensitive   = true
 }
 
+variable "mongodb_database" {
+  description = "MongoDB database name"
+  type        = string
+  default     = "adhere"
+}
+
 variable "mongodb_username" {
   description = "MongoDB username"
   type        = string

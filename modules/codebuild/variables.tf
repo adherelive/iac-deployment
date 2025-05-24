@@ -47,3 +47,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "codestar_connection_arn" {
+  description = "ARN of the AWS CodeStar Connection for GitHub access"
+  type        = string
+}
