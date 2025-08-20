@@ -4,7 +4,27 @@ provider "azurerm" {
 
 resource "null_resource" "azure_login_check" {
   provisioner "local-exec" {
-    command = "az account show || (echo 'Error: Azure CLI not authenticated. Please run az login first.' && exit 1)"
+data "external" "azure_login_check" {
+  program = ["bash", "-c", <<EOT
+if az account show > /dev/null 2>&1; then
+  echo '{"authenticated": "true"}'
+else
+  echo '{"authenticated": "false"}'
+fi
+EOT
+  ]
+}
+
+locals {
+  azure_authenticated = data.external.azure_login_check.result["authenticated"] == "true"
+}
+
+# Fail if not authenticated (Terraform 1.2+)
+terraform {
+  required_version = ">= 1.2.0"
+  precondition {
+    condition     = local.azure_authenticated
+    error_message = "Error: Azure CLI not authenticated. Please run 'az login' first."
   }
 }
 
