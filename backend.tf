@@ -10,10 +10,11 @@ terraform {
     }
   }
 
-  backend "azurerm" {
-    resource_group_name  = "adherelive-terraform-state-rg"
-    storage_account_name = "adherelivestfstate"
-    container_name       = "tfstate"
-    key                  = "terraform.tfstate"
-  }
+  # Uncomment this section if you want to use Azure Storage for state management
+  # backend "azurerm" {
+  #   resource_group_name  = "terraform-state-rg"
+  #   storage_account_name = "adherelivestatesa"
+  #   container_name       = "terraform-state"
+  #   key                  = "terraform.tfstate"
+  # }
 }
