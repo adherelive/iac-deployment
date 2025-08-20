@@ -72,7 +72,7 @@ terraform init \
     -backend-config="resource_group_name=adherelive-terraform-state-rg" \
     -backend-config="storage_account_name=adherelivestfstate" \
     -backend-config="container_name=tfstate" \
-terraform init
+    -backend-config="container_name=tfstate"
 ```
 
 ### 5. Plan the Deployment
