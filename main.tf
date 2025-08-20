@@ -2,6 +2,12 @@ provider "azurerm" {
   features {}
 }
 
+resource "null_resource" "azure_login_check" {
+  provisioner "local-exec" {
+    command = "az account show"
+  }
+}
+
 resource "random_string" "unique_suffix" {
   length  = 6
   special = false
