@@ -65,7 +65,11 @@ Before you can initialize Terraform, you need to create the Azure Storage resour
 
 ### 3. Initialize Terraform
 
-Now, initialize Terraform, passing the backend configuration:
+```bash
+terraform init
+```
+
+### 4. Login to Azure
 
 ```bash
 terraform init \
@@ -73,6 +77,12 @@ terraform init \
     -backend-config="storage_account_name=adherelivestfstate" \
     -backend-config="container_name=tfstate" \
     -backend-config="key=terraform.tfstate"
+```
+
+And confirm:
+
+```bash
+az login
 ```
 
 ### 5. Plan the Deployment
