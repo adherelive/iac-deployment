@@ -54,7 +54,7 @@ Before you can initialize Terraform, you need to create the Azure Storage resour
 3.  **Create a storage account:**
 
     ```bash
-    az storage account create --name adherelivestfstate --resource-group adherelive-terraform-state-rg --sku Standard_LRS --encryption-services blob
+    az storage account create --name adherelivestfstate --resource-group adherelive-terraform-state-rg --sku Standard_LRS --encryption-services blob --allow-blob-public-access false --min-tls-version TLS1_2
     ```
 
 4.  **Create a storage container:**
