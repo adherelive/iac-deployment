@@ -2,6 +2,34 @@
 
 This guide walks you through deploying your AdhereLive application stack on AWS using Terraform, with CloudFront and Disaster Recovery capabilities.
 
+## Quick Start
+
+This section is for users who are already familiar with AWS and Terraform and want to get started quickly.
+
+1.  **Configure AWS Credentials**: Ensure your AWS CLI is configured with a default profile:
+    ```bash
+    aws configure
+    ```
+
+2.  **Create a CodeStar Connection**: Create an AWS CodeStar connection to your GitHub account and note the ARN. You will need this for the `codestar_connection_arn` variable. See the [GitHub Integration Guide](github-integration.md) for more details.
+
+3.  **Create `terraform.tfvars`**: Create a `terraform.tfvars` file and fill in the required variables. You can start by copying the example file:
+    ```bash
+    cp terraform.tfvars.example terraform.tfvars
+    ```
+    **Important**: You must provide a value for `codestar_connection_arn`.
+
+4.  **Deploy the Infrastructure**: Run the deployment script:
+    ```bash
+    ./deploy-infrastructure.sh apply
+    ```
+
+5.  **Backup your configuration**: The script will generate a `terraform.tfvars` file with random database passwords. **It is critical that you back up this file in a secure location.**
+
+6.  **Configure DNS**: After the deployment is complete, update your domain's NS records to point to the Route 53 nameservers provided in the Terraform output.
+
+7.  **Deploy Application Code**: The CodeBuild projects will automatically build and deploy your application code from the `adherelive-web` and `adherelive-fe` repositories. Ensure the `buildspec-backend.yml` and `buildspec-frontend.yml` files are present in the root of those repositories.
+
 ## Infrastructure Overview
 
 This deployment creates:
@@ -54,46 +82,45 @@ Enter your AWS Access Key ID, Secret Access Key, default region, and output form
 
 ### 2. Configure Your Deployment
 
-1. Create a copy of the example variables file:
+1.  **Create a `terraform.tfvars` file.** You can start by copying the example file:
+    ```bash
+    cp terraform.tfvars.example terraform.tfvars
+    ```
+    The `deploy-infrastructure.sh` script will also create this file for you if it doesn't exist, with randomly generated database passwords.
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
+2.  **Edit `terraform.tfvars`** with your specific values:
+    *   `codestar_connection_arn`: **This is a mandatory field.** You must provide the ARN of your AWS CodeStar connection to GitHub. See the [GitHub Integration Guide](github-integration.md) for more details.
+    *   `admin_ip_address`: Set this to your IP address for secure SSH access.
+    *   `domain_name` and `email`: Update these with your actual domain and email address.
+    *   Other variables can be adjusted as needed.
 
-2. Edit `terraform.tfvars` with your specific values:
-   - Update `region` to your preferred AWS region for primary and secondary regions
-   - Update `ami_id` to a valid Ubuntu AMI for both your selected region (ensure they are valid Ubuntu AMIs)
-   - DR mode: "pilot-light" (lower cost) or "active-passive" (faster recovery)
-   - Set `admin_ip_address` to your IP address for SSH security
-   - Set strong passwords for `mysql_admin_password` and `mongodb_admin_password`
-   - Update `domain_name` with your actual domain
-   - Add your email address for Let's Encrypt notifications
+> **IMPORTANT**: If the `deploy-infrastructure.sh` script creates the `terraform.tfvars` file for you, it will contain randomly generated passwords for the databases. **It is critical that you back up this file in a secure location.**
 
 ### 3. Initialize and Deploy
 
-```bash
-# Initialize Terraform
-terraform init
-'''
+We recommend using the provided `deploy-infrastructure.sh` script to deploy the infrastructure. It wraps the necessary Terraform commands and provides helpful checks.
 
-# Validate configuration
-terraform validate
+*   **To see the execution plan:**
+    ```bash
+    ./deploy-infrastructure.sh plan
+    ```
+    This will initialize Terraform, validate the configuration, and show you what resources will be created.
 
-# Plan the Deployment
+*   **To apply the configuration and deploy the infrastructure:**
+    ```bash
+    ./deploy-infrastructure.sh apply
+    ```
+    This will create all the necessary resources in AWS. The process may take 20-45 minutes to complete.
 
-```bash
-terraform plan -out=tfplan
-```
+### 4. Application Build and Deployment
 
-Review the plan to make sure it's creating the resources you expect.
+The infrastructure includes AWS CodeBuild projects that will automatically build and deploy your applications from the following GitHub repositories:
+*   Backend: `https://github.com/adherelive/adherelive-web.git`
+*   Frontend: `https://github.com/adherelive/adherelive-fe.git`
 
-# Apply the Terraform Configuration
-
-```bash
-terraform apply tfplan
-```
-
-This will create all the necessary resources in AWS. The process may take 20-45 minutes to complete.
+For the builds to succeed, you must have the following files in the root of those repositories:
+*   `buildspec-backend.yml` in `adherelive-web`
+*   `buildspec-frontend.yml` in `adherelive-fe`
 
 ### 4. Configure DNS
 

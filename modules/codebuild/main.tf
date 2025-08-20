@@ -319,7 +319,7 @@ resource "aws_codebuild_project" "backend" {
     # }
 
     buildspec = "buildspec-backend.yml"
-    
+
     auth {
       type     = "OAUTH"
       resource = var.codestar_connection_arn
@@ -398,7 +398,7 @@ resource "aws_codebuild_project" "frontend" {
     # }
 
     buildspec = "buildspec-frontend.yml"
-    
+
     auth {
       type     = "OAUTH"
       resource = var.codestar_connection_arn
