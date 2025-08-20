@@ -4,7 +4,7 @@ provider "azurerm" {
 
 resource "null_resource" "azure_login_check" {
   provisioner "local-exec" {
-    command = "az account show"
+    command = "az account show || (echo 'Error: Azure CLI not authenticated. Please run az login first.' && exit 1)"
   }
 }
 
