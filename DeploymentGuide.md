@@ -33,6 +33,36 @@ cp terraform.tfvars.example terraform.tfvars
    - Update `domain_name` with your actual domain
    - Add your email address for Let's Encrypt notifications
 
+### 2. Configure Backend State
+
+This project uses Azure Storage to store the Terraform state, which is a best practice for collaboration and for keeping your state file secure.
+
+Before you can initialize Terraform, you need to create the Azure Storage resources for the backend.
+
+1.  **Login to Azure:**
+
+    ```bash
+    az login
+    ```
+
+2.  **Create a resource group:**
+
+    ```bash
+    az group create --name adherelive-terraform-state-rg --location "Central India"
+    ```
+
+3.  **Create a storage account:**
+
+    ```bash
+    az storage account create --name adherelivestfstate --resource-group adherelive-terraform-state-rg --sku Standard_LRS --encryption-services blob
+    ```
+
+4.  **Create a storage container:**
+
+    ```bash
+    az storage container create --name tfstate --account-name adherelivestfstate
+    ```
+
 ### 3. Initialize Terraform
 
 ```bash
@@ -40,6 +70,16 @@ terraform init
 ```
 
 ### 4. Login to Azure
+
+```bash
+terraform init \
+    -backend-config="resource_group_name=adherelive-terraform-state-rg" \
+    -backend-config="storage_account_name=adherelivestfstate" \
+    -backend-config="container_name=tfstate" \
+    -backend-config="key=terraform.tfstate"
+```
+
+And confirm:
 
 ```bash
 az login
