@@ -1,4 +1,4 @@
-FROM node:16.10.0 AS builder
+FROM node:22.18.0 AS builder
 # RUN useradd -d /home/azureuser -m -s /bin/bash azureuser
 # Get the current Git commit hash and set it as a build argument
 ARG COMMIT_HASH=unknown
