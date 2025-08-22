@@ -1,501 +1,53 @@
-# AWS Deployment Guide for AdhereLive
+# Azure Deployment Guide for AdhereLive
 
-This guide walks you through deploying your AdhereLive application stack on AWS using Terraform, with CloudFront and Disaster Recovery capabilities.
+This guide walks you through deploying the AdhereLive application stack on Microsoft Azure using Terraform.
 
-## Quick Start
+**CURRENT STATUS: NOT FUNCTIONAL**
 
-This section is for users who are already familiar with AWS and Terraform and want to get started quickly.
+The Azure deployment is not yet functional. The Terraform configuration files in this directory (`azure/`) are currently incorrect and are copies of the AWS configuration. Before you can deploy to Azure, you must replace them with a valid Azure Terraform configuration.
 
-1.  **Configure AWS Credentials**: Ensure your AWS CLI is configured with a default profile:
-    ```bash
-    aws configure
-    ```
+## How to Deploy (Once Corrected)
 
-2.  **Create a CodeStar Connection**: Create an AWS CodeStar connection to your GitHub account and note the ARN. You will need this for the `codestar_connection_arn` variable. See the [GitHub Integration Guide](github-integration.md) for more details.
+Once the Terraform files in this directory have been corrected, you can use the root-level `deploy.sh` script to manage your Azure infrastructure.
 
-3.  **Create `terraform.tfvars`**: Create a `terraform.tfvars` file and fill in the required variables. You can start by copying the example file:
-    ```bash
-    cp terraform.tfvars.example terraform.tfvars
-    ```
-    **Important**: You must provide a value for `codestar_connection_arn`.
+### Prerequisites
 
-4.  **Deploy the Infrastructure**: Run the deployment script:
-    ```bash
-    ./deploy-infrastructure.sh apply
-    ```
+1.  **Terraform**: [Installation Guide](https://learn.hashicorp.com/tutorials/terraform/install-cli)
+2.  **Azure CLI**: [Installation Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+3.  A valid Azure account with the necessary permissions.
 
-5.  **Backup your configuration**: The script will generate a `terraform.tfvars` file with random database passwords. **It is critical that you back up this file in a secure location.**
+### Deployment Steps
 
-6.  **Configure DNS**: After the deployment is complete, update your domain's NS records to point to the Route 53 nameservers provided in the Terraform output.
-
-7.  **Deploy Application Code**: The CodeBuild projects will automatically build and deploy your application code from the `adherelive-web` and `adherelive-fe` repositories. Ensure the `buildspec-backend.yml` and `buildspec-frontend.yml` files are present in the root of those repositories.
-
-## Infrastructure Overview
-
-This deployment creates:
-
-1. **Primary Infrastructure** in your main AWS region:
-   - VPC with public and private subnets
-   - EC2 instances for frontend and backend
-   - RDS MySQL, DocumentDB, and ElastiCache Redis
-   - Security groups and networking components
-   
-2. **CloudFront Distribution** for content delivery and security:
-   - WAF protection against common attacks
-   - SSL/TLS termination with custom domain support
-   - Global content delivery
-
-3. **Disaster Recovery** in a secondary AWS region:
-   - Either "pilot-light" or "active-passive" configuration
-   - Database replication or standby instances
-   - Automated failover mechanisms
-
-## Prerequisites
-
-Before you begin, make sure you have the following installed on your local machine:
-
-1. *AWS CLI*: [Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-2. *Terraform*: [Installation Guide](https://learn.hashicorp.com/tutorials/terraform/install-cli)
-3. *SSH Key Pair*: Generated using `ssh-keygen -t rsa -b 4096`
-4. *Domain Name*: Registered domain that you control
-5. *Valid Email*: For SSL certificate validation notifications
-
-## Setup Steps
-
-### 1. Prepare Your Environment
-
-```bash
-# Clone the repository (if applicable)
-git clone https://github.com/your-repo/adherelive-aws-infrastructure.git
-cd adherelive-aws-infrastructure
-```
-
-# Configure Your AWS Credentials
-
-Ensure you have AWS credentials configured:
-
-```bash
-aws configure
-```
-
-Enter your AWS Access Key ID, Secret Access Key, default region, and output format when prompted.
-
-### 2. Configure Backend State
-
-This project uses Azure Storage to store the Terraform state, which is a best practice for collaboration and for keeping your state file secure.
-
-Before you can initialize Terraform, you need to create the Azure Storage resources for the backend.
-
-1.  **Login to Azure:**
-
+1.  **Configure your Azure Credentials**:
     ```bash
     az login
     ```
 
-2.  **Create a resource group:**
-
+2.  **Plan the deployment**:
+    This command will initialize Terraform and show you what Azure resources will be created. Run it from the root of the repository.
     ```bash
-    az group create --name adherelive-terraform-state-rg --location "Central India"
+    ./deploy.sh azure plan
     ```
 
-3.  **Create a storage account:**
-
+3.  **Apply the configuration**:
+    This will create all the necessary resources in Azure.
     ```bash
-    az storage account create --name adherelivestfstate --resource-group adherelive-terraform-state-rg --sku Standard_LRS --encryption-services blob
+    ./deploy.sh azure apply
     ```
 
-4.  **Create a storage container:**
-
+4.  **Destroy the infrastructure**:
+    To remove all resources created by Terraform in Azure:
     ```bash
-    az storage container create --name tfstate --account-name adherelivestfstate
+    ./deploy.sh azure destroy
     ```
 
-### 3. Initialize Terraform
-### 2. Configure Your Deployment
+## Required Corrections
 
-1.  **Create a `terraform.tfvars` file.** You can start by copying the example file:
-    ```bash
-    cp terraform.tfvars.example terraform.tfvars
-    ```
-    The `deploy-infrastructure.sh` script will also create this file for you if it doesn't exist, with randomly generated database passwords.
+To enable the Azure deployment, the following files in this directory must be created or corrected:
 
-2.  **Edit `terraform.tfvars`** with your specific values:
-    *   `codestar_connection_arn`: **This is a mandatory field.** You must provide the ARN of your AWS CodeStar connection to GitHub. See the [GitHub Integration Guide](github-integration.md) for more details.
-    *   `admin_ip_address`: Set this to your IP address for secure SSH access.
-    *   `domain_name` and `email`: Update these with your actual domain and email address.
-    *   Other variables can be adjusted as needed.
+1.  **`main.tf`**: This file must contain the Terraform configuration for your Azure resources (e.g., Resource Groups, App Service, Azure Database for MySQL, etc.). It should use the `azurerm` provider.
+2.  **`variables.tf`**: This file should define all the variables used in your Azure configuration.
+3.  **`outputs.tf`**: This file should define any outputs from your Azure deployment, such as application URLs or database hostnames.
+4.  **`deploy-infrastructure.sh`**: The placeholder script in this directory must be replaced with a script capable of running `terraform` commands for the Azure environment, similar to the one in the `aws/` directory.
 
-> **IMPORTANT**: If the `deploy-infrastructure.sh` script creates the `terraform.tfvars` file for you, it will contain randomly generated passwords for the databases. **It is critical that you back up this file in a secure location.**
-```bash
-terraform init \
-    -backend-config="resource_group_name=adherelive-terraform-state-rg" \
-    -backend-config="storage_account_name=adherelivestfstate" \
-    -backend-config="container_name=tfstate" \
-    -backend-config="key=terraform.tfstate"
-```
-
-And confirm:
-
-```bash
-az login
-```
-
-### 3. Initialize and Deploy
-
-We recommend using the provided `deploy-infrastructure.sh` script to deploy the infrastructure. It wraps the necessary Terraform commands and provides helpful checks.
-
-*   **To see the execution plan:**
-    ```bash
-    ./deploy-infrastructure.sh plan
-    ```
-    This will initialize Terraform, validate the configuration, and show you what resources will be created.
-
-*   **To apply the configuration and deploy the infrastructure:**
-    ```bash
-    ./deploy-infrastructure.sh apply
-    ```
-    This will create all the necessary resources in AWS. The process may take 20-45 minutes to complete.
-
-### 4. Application Build and Deployment
-
-The infrastructure includes AWS CodeBuild projects that will automatically build and deploy your applications from the following GitHub repositories:
-*   Backend: `https://github.com/adherelive/adherelive-web.git`
-*   Frontend: `https://github.com/adherelive/adherelive-fe.git`
-
-For the builds to succeed, you must have the following files in the root of those repositories:
-*   `buildspec-backend.yml` in `adherelive-web`
-*   `buildspec-frontend.yml` in `adherelive-fe`
-
-### 4. Configure DNS
-
-After deployment completes, Terraform will output your frontend and backend IP addresses (we'll need to point your domain to AWS name servers):
-
-1. Locate the name servers in the Terraform output:
-   ```bash
-   terraform output route53_nameservers
-   ```
-
-2. Update your domain registrar's DNS settings to use these name servers.
-   - This enables the Route53 hosted zone to manage your domain
-   - DNS propagation may take 24-48 hours
-
-a. If your domain is registered elsewhere, add NS records pointing to the AWS Route 53 nameservers
-b. If needed, configure additional DNS records through the AWS Console
-
-### 5. Deploy Your Application Code
-
-Once the infrastructure is ready, you need to set up SSH access to GitHub repositories on both VMs:
-
-1. *Prepare your GitHub SSH key*:
-   - Make sure you have an SSH key that has access to the AdhereLive GitHub repositories
-   - If you don't have one, create it and add it to your GitHub account
-
-2. *Deploy the SSH key to your servers*:
-   - Use the provided script to deploy your GitHub SSH key to both servers:
-
-```bash
-# Get the IPs from Terraform output for the EC2 instances
-BACKEND_IP=$(terraform output -raw backend_public_ip)
-FRONTEND_IP=$(terraform output -raw frontend_public_ip)
-
-# Run the SSH key deployment script
-./scripts/ssh_key_setup.sh $BACKEND_IP $FRONTEND_IP ~/.ssh/github_key
-```
-
-This script will:
-- Copy your GitHub SSH key to both servers
-- Test the GitHub connection
-- Run the deployment scripts that will:
-  - Clone the repositories (adherelive-web.git for backend and adherelive-fe.git for frontend)
-  - Build the Docker images using the provided Dockerfiles
-  - Start the containers using Docker Compose
-
-### 6. *Verify Deployment*:
-   - Check that the applications are running by accessing:
-Test your deployment:
-
-1. Frontend website:
-   - https://your-domain.com
-   - Should be delivered via CloudFront
-
-2. Backend API:
-   - https://api.your-domain.com
-   - Also protected by CloudFront
-
-## Disaster Recovery Testing and Failover
-
-The DR configuration should be tested regularly to ensure it works when needed.
-
-### Testing Pilot-Light DR
-
-In pilot-light mode:
-1. Database replication is already running
-2. In case of disaster:
-   ```bash
-   # SSH to the DR region and launch frontend/backend
-   aws ec2 run-instances --image-id $DR_AMI_ID --instance-type t3.small --key-name $DR_KEY_NAME [other parameters]
-   ```
-
-### Testing Active-Passive DR
-
-In active-passive mode:
-1. All infrastructure is already running in both regions
-2. Test failover by updating Route53:
-   ```bash
-   # Update Route53 record to point to DR instance
-   aws route53 change-resource-record-sets --hosted-zone-id $ZONE_ID --change-batch file://failover-to-dr.json
-   ```
-
-3. Sample failover-to-dr.json:
-   ```json
-   {
-     "Changes": [
-       {
-         "Action": "UPSERT",
-         "ResourceRecordSet": {
-           "Name": "api.example.com",
-           "Type": "A",
-           "SetIdentifier": "primary",
-           "Failover": "PRIMARY",
-           "TTL": 60,
-           "ResourceRecords": [
-             {
-               "Value": "DR_BACKEND_IP"
-             }
-           ]
-         }
-       }
-     ]
-   }
-   ```
-
-
-## Infrastructure Components
-
-Your deployed infrastructure includes:
-
-- *VPC* with public and private subnets across two availability zones
-- *EC2 Instances* for frontend and backend applications
-- *Security Groups* with configured rules for each component
-- *RDS MySQL* database service
-- *DocumentDB* with MongoDB API
-- *ElastiCache* for Redis caching
-- *Route 53* for domain management
-- *Elastic IPs* associated with EC2 instances
-
-## SSL Configuration
-
-Let's Encrypt certificates are automatically set up for your domain. The certificates will auto-renew through a configured cron job.
-
-## Maintenance
-
-### Monitoring DR Status
-
-```bash
-# Check status of database replication
-aws rds describe-db-instances --db-instance-identifier $(terraform output -raw mysql_endpoint | cut -d ":" -f1)
-
-# For DocumentDB
-aws docdb describe-db-clusters --db-cluster-identifier $(terraform output -raw mongodb_endpoint | cut -d ":" -f1)
-```
-
-### Updating the Application
-
-To update your application in both regions:
-
-1. Primary Region:
-   ```bash
-   ssh ubuntu@$(terraform output -raw frontend_public_ip) "sudo /app/deploy.sh"
-   ssh ubuntu@$(terraform output -raw backend_public_ip) "sudo /app/deploy.sh"
-   ```
-
-2. DR Region (active-passive mode):
-   ```bash
-   DR_FRONTEND_IP=$(terraform output -raw dr_frontend_public_ip)
-   DR_BACKEND_IP=$(terraform output -raw dr_backend_public_ip)
-   
-   # Only if in active-passive mode (not pilot-light)
-   if [[ "$DR_FRONTEND_IP" != "Not deployed in pilot-light mode" ]]; then
-     ssh ubuntu@$DR_FRONTEND_IP "sudo /app/deploy.sh"
-     ssh ubuntu@$DR_BACKEND_IP "sudo /app/deploy.sh"
-   fi
-   ```
-
-### Modifying Infrastructure
-
-If you need to modify the infrastructure:
-
-1. Update the Terraform files
-2. Run `terraform plan` to see the changes
-3. Apply the changes with `terraform apply`
-
-### CloudFront Configuration
-
-CloudFront settings can be adjusted in the AWS Console or via Terraform:
-
-1. Adjust cache behaviors for better performance
-2. Update WAF rules for additional security
-3. Configure additional origins if needed
-
-### Managing WAF Rules
-
-The default WAF configuration includes basic protection. To add custom rules:
-
-```bash
-# Create a rule in WAF
-aws wafv2 create-rule-group --name my-custom-rules --scope CLOUDFRONT --region us-east-1 --capacity 10 \
-  --rules file://custom-waf-rules.json \
-  --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=CustomRulesMetric
-```
-
-Then update the Terraform code to include these custom rules.
-
-### Destroying the Infrastructure
-
-If you need to tear down the entire environment:
-
-```bash
-terraform destroy
-```
-
-*Warning*: This will delete all resources created by Terraform, including databases and their data.
-
-## Troubleshooting
-
-### Checking Logs
-
-- *Application Logs*: Access Docker container logs on each VM
-  ```bash
-  ssh ubuntu@YOUR_VM_IP "sudo docker logs -f container_name"
-  ```
-
-- *Nginx Logs*: Check web server logs for issues
-  ```bash
-  ssh ubuntu@YOUR_VM_IP "sudo cat /var/log/nginx/error.log"
-  ```
-
-### SSH Access Issues
-
-If you can't SSH into the EC2 instances:
-1. Verify your IP is allowed in the Security Group
-2. Check that you're using the correct SSH key
-3. Confirm the instance is running in the AWS Console
-
-### CloudFront Issues
-
-1. **SSL Certificate Problems**:
-   - Verify ACM certificate status: `aws acm describe-certificate --certificate-arn $(terraform output -raw acm_certificate_arn)`
-   - Ensure DNS validation is complete
-
-2. **Cache Behavior Issues**:
-   - Check CloudFront configuration: `aws cloudfront get-distribution-config --id $(terraform output -raw cloudfront_distribution_id)`
-   - Invalidate cache if needed: `aws cloudfront create-invalidation --distribution-id $(terraform output -raw cloudfront_distribution_id) --paths "/*"`
-
-### Database Replication Issues
-
-1. **RDS Replication Lag**:
-   ```bash
-   aws rds describe-db-instances --db-instance-identifier $(terraform output -raw mysql_endpoint | cut -d ":" -f1) --query "DBInstances[0].ReplicationSourceIdentifier"
-   ```
-
-2. **DocumentDB Replication**:
-   ```bash
-   aws docdb describe-db-clusters --db-cluster-identifier $(terraform output -raw mongodb_endpoint | cut -d ":" -f1) --query "DBClusters[0].ReplicationSourceIdentifier"
-   ```
-
-## Security Best Practices
-
-1. **Rotate Credentials Regularly**:
-   - Update database passwords: `terraform apply -var="mysql_admin_password=NewPassword" -var="mongodb_admin_password=NewPassword"`
-
-2. **Audit CloudFront and WAF logs**:
-   - Enable CloudFront access logging
-   - Review WAF logs in CloudWatch
-
-3. **Restrict SSH Access**:
-   - Update security groups to only allow your IP: `terraform apply -var="admin_ip_address=your-new-ip"`
-
-## Security Notes
-
-1. The database services are configured in private subnets, only accessible from the application servers
-2. SSH access to EC2 instances is restricted to your specified IP address
-3. All passwords are marked as sensitive in Terraform and not displayed in logs
-4. HTTPS is enforced on both frontend and backend using Let's Encrypt certificates
-5. Regular security updates are applied through configured cron jobs
-
-## Disaster Recovery Procedures
-
-### Failover to DR Region
-
-In case of primary region failure:
-
-1. **For Pilot-Light Mode**:
-   - Launch EC2 instances in DR region
-   - Promote database replicas to primary
-   - Update DNS to point to new instances
-
-2. **For Active-Passive Mode**:
-   - Update Route53 records to point to DR infrastructure
-   - Verify application is working correctly in DR region
-
-### Failback to Primary Region
-
-Once the primary region is restored:
-
-1. Re-establish database replication from DR to Primary
-2. Update Route53 records to point back to primary region
-3. Verify application is working correctly in primary region
-
-## Cost Optimization
-
-To optimize costs for your AWS infrastructure:
-
-1. *Right-size resources*: Start with the specified instance types and adjust based on actual usage
-
-2. *Reserved Instances*: Consider purchasing reserved instances for EC2, RDS, and ElastiCache if you plan long-term usage
-
-3. *Spot Instances*: For non-critical components, consider using spot instances
-
-4. *AWS Cost Explorer*: Use to track and optimize expenses
-
-5. **Pilot-Light vs Active-Passive**:
-   - Pilot-Light: ~40-50% additional cost above base infrastructure
-   - Active-Passive: ~80-100% additional cost above base infrastructure
-
-6. **Reserved Instances**:
-   - Consider Reserved Instances for long-term deployments
-   - Can reduce EC2 and RDS costs by 30-60%
-
-7. **CloudFront Optimization**:
-   - Use appropriate price class based on your audience location
-   - Configure caching policies to reduce origin requests
-   
-
-## Backup Strategy
-
-For data protection:
-
-1. *Database backups*: 
-   - RDS MySQL has 7-day automatic backups enabled
-   - DocumentDB has automated backups configured
-   - Consider setting up additional AWS Backup jobs for critical data
-
-2. *EC2 backups*:
-   - Consider enabling AWS Backup for your EC2 instances
-   - Implement application-level backups for your data
-
-## Monitoring
-
-For effective monitoring:
-
-1. *CloudWatch*: Monitor metrics for all AWS resources
-2. *CloudWatch Logs*: Centralize application and system logs
-3. *CloudWatch Alarms*: Set up alerts for important thresholds
-
-## Conclusion
-
-You now have a complete robust, secure, and disaster-ready infrastructure setup for running your AdhereLive application on AWS. The configuration provides a secure and scalable environment with all the required components: frontend, backend, MySQL, MongoDB, and Redis.
-
-The CloudFront integration provides enhanced security and performance, while the DR capabilities ensure business continuity even in the event of a regional outage.
-
-For additional assistance, refer to the AWS documentation or contact your system administrator.
+Once these corrections are made, the `./deploy.sh azure` command will become fully functional.
