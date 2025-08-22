@@ -26,7 +26,7 @@ systemctl start docker
 curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Setup SSH key for the azureuser
+# Setup SSH key for the ubuntu user
 mkdir -p /home/${admin_username}/.ssh
 touch /home/${admin_username}/.ssh/id_rsa
 chmod 600 /home/${admin_username}/.ssh/id_rsa

@@ -1,49 +1,263 @@
-variable "prefix" {
-  description = "The prefix which should be used for all resources"
-  default     = "alprod"
-  validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,50}[a-z0-9]$", var.prefix)) || can(regex("^[a-z][a-z0-9]$", var.prefix))
-    error_message = "The prefix must start with a letter, end with a letter or number, and contain only lowercase letters, numbers, and hyphens. Maximum length is 50 characters."
-  }
+# variables.tf - Terraform Variables
+
+# General Configuration
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "ap-south-1"
 }
 
-variable "location" {
-  description = "The Azure Region in which all resources should be created"
-  default     = "Central India"
+variable "aws_profile" {
+  description = "AWS CLI profile to use"
+  type        = string
+  default     = "default"
 }
 
-variable "resource_group_name" {
-  description = "Name of the resource group"
-  default     = "adherelive-prod"
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "prod"
 }
 
-variable "admin_username" {
-  description = "Username for the Virtual Machine"
-  default     = "adherelive"
+# Network Configuration
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to the SSH public key for Azure VM authentication & GitHub"
-  default     = "~/.ssh/id_rsa.pub"
-}
-
-variable "admin_ip_address" {
-  description = "The IP address range that can be used to SSH to the Virtual Machines"
-  default     = "*"
-}
-
-variable "mysql_admin_password" {
-  description = "The password for the MySQL administrator account"
-  sensitive   = true
-}
-
+# Domain Configuration
 variable "domain_name" {
-  description = "The domain name to use for the application"
-  default     = "adherelivedemo"
+  description = "Root domain name"
+  type        = string
+  default     = "adhere.live"
 }
 
-variable "email" {
-  description = "Email address for Let's Encrypt notifications"
-  default	  = "gagneet.singh@adhere.live"
+variable "subdomain" {
+  description = "Subdomain for the application"
+  type        = string
+  default     = "test"
 }
 
+variable "hosted_zone_id" {
+  description = "Route 53 hosted zone ID for the domain"
+  type        = string
+  default     = "/hostedzone/Z07131103N7T1TNI3V05V"
+}
+
+# SSL Configuration
+variable "enable_ssl" {
+  description = "Enable SSL certificate and HTTPS"
+  type        = bool
+  default     = false
+}
+
+variable "ssl_certificate_arn" {
+  description = "ARN of existing SSL certificate (optional)"
+  type        = string
+  default     = ""
+}
+
+# GitHub Repository Configuration
+variable "backend_repo_url" {
+  description = "GitHub repository URL for backend"
+  type        = string
+  default     = "https://github.com/adherelive/adherelive-web.git"
+}
+
+variable "frontend_repo_url" {
+  description = "GitHub repository URL for frontend"
+  type        = string
+  default     = "https://github.com/adherelive/adherelive-fe.git"
+}
+
+variable "backend_branch" {
+  description = "Git branch for backend repository"
+  type        = string
+  default     = "akshay-gaurav-latest-changes"
+}
+
+variable "frontend_branch" {
+  description = "Git branch for frontend repository"
+  type        = string
+  default     = "akshay-gaurav-latest-changes"
+}
+
+variable "image_tag" {
+  description = "Docker image tag for builds"
+  type        = string
+  default     = "latest"
+}
+
+variable "codestar_connection_arn" {
+  description = "ARN of the AWS CodeStar Connection for GitHub access"
+  type        = string
+  default     = "" # Or prompt user to fill this in terraform.tfvars
+}
+
+# Application Configuration
+variable "backend_image" {
+  description = "Docker image for backend service (auto-generated from CodeBuild)"
+  type        = string
+  default     = ""
+}
+
+variable "frontend_image" {
+  description = "Docker image for frontend service (auto-generated from CodeBuild)"
+  type        = string
+  default     = ""
+}
+
+# Database Configuration - MySQL
+variable "mysql_database" {
+  description = "MySQL database name"
+  type        = string
+  default     = "adhere"
+}
+
+variable "mysql_username" {
+  description = "MySQL master username"
+  type        = string
+  default     = "user"
+}
+
+variable "mysql_password" {
+  description = "MySQL master password"
+  type        = string
+  sensitive   = true
+  default     = "StrongP4ssword123!"
+}
+
+# MongoDB Database Configuration
+variable "mongodb_database" {
+  description = "MongoDB database name"
+  type        = string
+  default     = "adhere"
+}
+
+# Database Configuration - MongoDB (DocumentDB)
+variable "mongodb_username" {
+  description = "MongoDB master username"
+  type        = string
+  default     = "mongouser"
+}
+
+variable "mongodb_password" {
+  description = "MongoDB master password"
+  type        = string
+  sensitive   = true
+  default     = "StrongP4ssword123!"
+}
+
+# Scaling Configuration
+variable "backend_desired_count" {
+  description = "Desired number of backend tasks"
+  type        = number
+  default     = 2
+}
+
+variable "frontend_desired_count" {
+  description = "Desired number of frontend tasks"
+  type        = number
+  default     = 2
+}
+
+variable "backend_cpu" {
+  description = "CPU units for backend tasks"
+  type        = number
+  default     = 512
+}
+
+variable "backend_memory" {
+  description = "Memory (MB) for backend tasks"
+  type        = number
+  default     = 1024
+}
+
+variable "frontend_cpu" {
+  description = "CPU units for frontend tasks"
+  type        = number
+  default     = 256
+}
+
+variable "frontend_memory" {
+  description = "Memory (MB) for frontend tasks"
+  type        = number
+  default     = 512
+}
+
+# RDS Configuration
+variable "rds_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "rds_allocated_storage" {
+  description = "RDS allocated storage in GB"
+  type        = number
+  default     = 20
+}
+
+variable "rds_max_allocated_storage" {
+  description = "RDS maximum allocated storage in GB"
+  type        = number
+  default     = 100
+}
+
+# DocumentDB Configuration
+variable "documentdb_instance_class" {
+  description = "DocumentDB instance class"
+  type        = string
+  default     = "db.t3.medium"
+}
+
+variable "documentdb_cluster_size" {
+  description = "Number of DocumentDB instances"
+  type        = number
+  default     = 1
+}
+
+# Auto Scaling Configuration
+variable "enable_auto_scaling" {
+  description = "Enable ECS auto scaling"
+  type        = bool
+  default     = true
+}
+
+variable "auto_scaling_min_capacity" {
+  description = "Minimum capacity for auto scaling"
+  type        = number
+  default     = 1
+}
+
+variable "auto_scaling_max_capacity" {
+  description = "Maximum capacity for auto scaling"
+  type        = number
+  default     = 10
+}
+
+variable "auto_scaling_target_cpu" {
+  description = "Target CPU utilization for auto scaling"
+  type        = number
+  default     = 70
+}
+
+# Disaster Recovery Configuration
+variable "enable_multi_az" {
+  description = "Enable Multi-AZ deployment for databases"
+  type        = bool
+  default     = false # Set to true for production DR
+}
+
+variable "backup_retention_period" {
+  description = "Database backup retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "enable_cross_region_backup" {
+  description = "Enable cross-region backup replication"
+  type        = bool
+  default     = false # Enable for DR
+}

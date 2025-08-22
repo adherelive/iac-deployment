@@ -30,7 +30,7 @@ systemctl start docker
 curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Setup SSH key for the azureuser
+# Setup SSH key for the ubuntu user
 mkdir -p /home/${admin_username}/.ssh
 touch /home/${admin_username}/.ssh/id_rsa
 chmod 600 /home/${admin_username}/.ssh/id_rsa
@@ -53,12 +53,9 @@ MYSQL_HOST=${mysql_host}
 MYSQL_USER=${mysql_user}
 MYSQL_PASSWORD=${mysql_password}
 MYSQL_DATABASE=${mysql_database}
-MONGO_URI=mongodb://${mongodb_host}:10255/?ssl=true&replicaSet=globaldb&retryWrites=false&maxIdleTimeMS=120000&appName=@${mongodb_host}@
-MONGO_USERNAME=${mongodb_host}
-MONGO_PASSWORD=${mongodb_primary_key}
+MONGO_URI=mongodb://${mongodb_username}:${mongodb_password}@${mongodb_host}:27017/adhere?retryWrites=false
 REDIS_HOST=${redis_host}
-REDIS_PORT=6379
-REDIS_PASSWORD=${redis_password}
+REDIS_PORT=${redis_port}
 EOF
 
 # Create Docker Compose file for the backend
