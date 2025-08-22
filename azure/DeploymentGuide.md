@@ -80,6 +80,37 @@ aws configure
 
 Enter your AWS Access Key ID, Secret Access Key, default region, and output format when prompted.
 
+### 2. Configure Backend State
+
+This project uses Azure Storage to store the Terraform state, which is a best practice for collaboration and for keeping your state file secure.
+
+Before you can initialize Terraform, you need to create the Azure Storage resources for the backend.
+
+1.  **Login to Azure:**
+
+    ```bash
+    az login
+    ```
+
+2.  **Create a resource group:**
+
+    ```bash
+    az group create --name adherelive-terraform-state-rg --location "Central India"
+    ```
+
+3.  **Create a storage account:**
+
+    ```bash
+    az storage account create --name adherelivestfstate --resource-group adherelive-terraform-state-rg --sku Standard_LRS --encryption-services blob
+    ```
+
+4.  **Create a storage container:**
+
+    ```bash
+    az storage container create --name tfstate --account-name adherelivestfstate
+    ```
+
+### 3. Initialize Terraform
 ### 2. Configure Your Deployment
 
 1.  **Create a `terraform.tfvars` file.** You can start by copying the example file:
@@ -95,6 +126,19 @@ Enter your AWS Access Key ID, Secret Access Key, default region, and output form
     *   Other variables can be adjusted as needed.
 
 > **IMPORTANT**: If the `deploy-infrastructure.sh` script creates the `terraform.tfvars` file for you, it will contain randomly generated passwords for the databases. **It is critical that you back up this file in a secure location.**
+```bash
+terraform init \
+    -backend-config="resource_group_name=adherelive-terraform-state-rg" \
+    -backend-config="storage_account_name=adherelivestfstate" \
+    -backend-config="container_name=tfstate" \
+    -backend-config="key=terraform.tfstate"
+```
+
+And confirm:
+
+```bash
+az login
+```
 
 ### 3. Initialize and Deploy
 
