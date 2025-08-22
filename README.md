@@ -1,135 +1,75 @@
-Here's a summary of what we need to deploy the AdhereLive application on Azure using Terraform:
+# AdhereLive Infrastructure as Code
 
-## Our Infrastructure as Code Solution
+This repository contains the Infrastructure as Code (IaC) for the AdhereLive application, managed with Terraform. It provides a unified way to deploy the necessary infrastructure to both AWS and Microsoft Azure.
 
-Created a complete Terraform solution that includes:
+## Quick Start
 
-1. *GitHub Repository Integration*:
-   - Add configuration to clone the repositories:
-     - `git@github.com:adherelive/adherelive-web.git` (backend)
-     - `git@github.com:adherelive/adherelive-fe.git` (frontend)
+The primary way to deploy and manage the infrastructure is through the root-level `deploy.sh` script. This script is a wrapper that handles the specifics of deploying to different cloud providers.
 
-2. *Docker Build Process*:
-   - Updated deployment scripts to build Docker images using provided Dockerfile(s)
-   - Added logic to capture the commit hash for image tagging
+### Prerequisites
 
-3. *SSH Key Management*:
-   - Created a dedicated script (`ssh_key_setup.sh`) to deploy the GitHub SSH keys to the servers
-   - This allows secure cloning of private repositories
+Before you begin, ensure you have the following installed on your local machine:
+1.  **Terraform**: [Installation Guide](https://learn.hashicorp.com/tutorials/terraform/install-cli)
+2.  **Cloud Provider CLI**:
+    *   For AWS: **AWS CLI** ([Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+    *   For Azure: **Azure CLI** ([Installation Guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli))
 
-4. *Automated Deployment*:
-   - Deployment scripts now handle the entire process:
-     - Cloning/updating the repositories
-     - Building Docker images
-     - Starting containers with the right environment variables
+### Usage
 
-5. *Virtual Network & Security Groups*: 
-   - Separate subnets for the frontend, backend, and databases
-   - Properly configured NSGs to control traffic
+The `deploy.sh` script is located in the root of this repository. To use it, run the following command:
 
-6. *Managed Databases*:
-   - Azure MySQL instance for the relational data
-   - Azure Cosmos DB with MongoDB API
-   - Azure Redis Cache for caching needs
+```bash
+./deploy.sh [provider] [action]
+```
 
-7. *Compute Resources*:
-   - Two virtual machines for frontend and backend applications
-   - Ubuntu-based with automatic updates and Docker preinstalled
+**Providers:**
+*   `aws`: Deploys the infrastructure to Amazon Web Services.
+*   `azure`: Deploys the infrastructure to Microsoft Azure.
 
-8. *Networking*:
-   - Public IP addresses with DNS names
-   - Domain configuration with Azure DNS
-   - HTTPS setup using Let's Encrypt certificates
+**Actions:**
+*   `init`: Initializes Terraform for the selected provider.
+*   `plan`: (Default) Creates a Terraform execution plan.
+*   `apply`: Applies the Terraform plan to create the infrastructure.
+*   `destroy`: Destroys the Terraform-managed infrastructure.
 
-9. *Initialization Scripts*:
-   - Bash scripts to configure both VMs on startup
-   - Nginx setup as a reverse proxy
-   - SSL certificate automation
+### Example: Deploying to AWS
 
-## How to Deploy
+1.  **Configure your AWS Credentials**:
+    ```bash
+    aws configure
+    ```
 
-To deploy this infrastructure from the local laptop:
+2.  **Plan the deployment**:
+    This command will initialize Terraform and show you what resources will be created.
+    ```bash
+    ./deploy.sh aws plan
+    ```
 
-1. Install the Azure CLI and Terraform on the local machine
+3.  **Apply the configuration**:
+    This will create all the necessary resources in AWS.
+    ```bash
+    ./deploy.sh aws apply
+    ```
 
-2. *Set Up Your Infrastructure*: 
-   - Run the Terraform scripts as described in the deployment guide
+## Deployment Status
 
-3. *Deploy SSH Keys*:
-   - After infrastructure creation, use the `ssh_key_setup.sh` script to deploy your GitHub SSH key
-   - This enables the VMs to authenticate with GitHub
+### AWS Deployment
 
-4. *Trigger Deployment*:
-   - The deployment script will automatically:
-     - Clone the repositories
-     - Build the Docker images using the Dockerfiles you provided
-     - Start the services with the proper configuration
+The AWS deployment is fully configured and ready to be deployed. It uses a modular Terraform structure to create a robust and scalable environment in ECS Fargate.
 
-5. *Ongoing Updates*:
-   - When you want to update your application, just SSH into the server and run:
-     ```
-     sudo /app/deploy.sh
-     ```
-   - This will pull the latest code, rebuild the image, and restart the service
+For more detailed information, see the [AWS Implementation Guide](./aws/implementation-guide.md).
 
-6. Copy `terraform.tfvars.example` to `terraform.tfvars` and update with our values
-7. Run `terraform init` to initialize
-8. Run `terraform plan` to verify everything looks good
-9. Run `terraform apply` to create the infrastructure
+### Azure Deployment
 
-The deployment guide provides detailed instructions for each step, including what to do after the infrastructure is created.
+**The Azure deployment is not yet functional.** The Terraform files in the `azure/` directory are currently incorrect copies of the AWS configuration.
 
-## Docker Image Deployment
+To make the Azure deployment functional, you will need to:
+1.  Replace the files in the `azure/` directory with the correct Terraform configuration for Azure.
+2.  Ensure you have a `deploy-infrastructure.sh` script within the `azure/` directory that can execute the Terraform commands.
 
-After the infrastructure is ready, we'll need to:
+Once the configuration is corrected, you can deploy to Azure using the standard command:
+```bash
+./deploy.sh azure apply
+```
 
-1. Build the Docker images for both frontend and backend
-2. Push them to a registry (Docker Hub or set up Azure Container Registry)
-3. Update the Docker Compose files on the VMs to use the images
-4. Run the deployment scripts
-
-The initialization scripts created install all necessary dependencies and set up continuous deployment through cron jobs, which will also handle SSL certificate renewal.
-
-
-No Infrastructure Blocking ✅
-
-Terraform will deploy successfully without domain configuration
-Your application will be accessible immediately via ALB DNS name
-You can test and develop while DNS propagates
-
-Phased Approach:
-
-Phase 1 (Immediate): Deploy infrastructure, access via ALB DNS
-Phase 2 (When ready): Configure domain in GoDaddy or transfer to Route53
-Phase 3 (After DNS works): Enable SSL certificate
-
-Domain Configuration Options:
-Option A (Recommended): Transfer DNS to Route53
-
-Automatic SSL certificate validation
-Better AWS integration
-No manual IP management needed
-
-Option B: Keep GoDaddy DNS
-
-Add CNAME record: test → your-alb-dns-name.ap-south-1.elb.amazonaws.com
-No need for static IP addresses
-
-SSL Certificate Options:
-Recommended: AWS Certificate Manager (ACM)
-
-Free and automatic renewal
-Integrated with AWS services
-No manual management
-
-Alternative: Let's Encrypt (script provided)
-
-More complex setup
-Manual renewal management
-
-Key Benefits:
-✅ Deploy immediately - no waiting for DNS
-✅ Test while DNS propagates - use ALB DNS name
-✅ Gradual migration - add SSL after domain works
-✅ No static IP needed - ALB handles load balancing automatically
-The infrastructure uses an Application Load Balancer (ALB) which provides a DNS name rather than a static IP, making domain configuration much more flexible and reliable than traditional static IP setups.
+For more details, see the [Azure Deployment Guide](./azure/DeploymentGuide.md).

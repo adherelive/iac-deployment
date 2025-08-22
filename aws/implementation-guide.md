@@ -99,20 +99,18 @@ docker push <ACCOUNT-ID>.dkr.ecr.ap-south-1.amazonaws.com/adherelive-fe:prod
 
 ### Step 5: Initialize and Validate
 ```bash
-# Make deployment script executable
-chmod +x deploy-infrastructure.sh
-
 # Initialize Terraform
-./deploy-infrastructure.sh init
+# This command should be run from the root of the repository
+../deploy.sh aws init
 ```
 
 ### Step 6: Plan Infrastructure (Experiment Phase)
 ```bash
-# Generate and review plan
-./deploy-infrastructure.sh plan
+# Generate and review plan from the root of the repository
+../deploy.sh aws plan
 
-# Review the generated terraform.tfvars
-# Update passwords, image URLs, and other configurations
+# The script will create a terraform.tfvars file in the aws/ directory.
+# Review this file and update passwords, image URLs, and other configurations.
 ```
 
 ### Step 7: Modular Testing Approach
@@ -130,7 +128,7 @@ Test VPC and security groups first by commenting out other modules in `main.tf`:
 ```
 
 ```bash
-./deploy-infrastructure.sh apply
+../deploy.sh aws apply
 ```
 
 #### Phase 7b: Database Layer
@@ -138,8 +136,8 @@ Uncomment and test databases:
 
 ```bash
 # Uncomment RDS and DocumentDB modules
-./deploy-infrastructure.sh plan
-./deploy-infrastructure.sh apply
+../deploy.sh aws plan
+../deploy.sh aws apply
 ```
 
 #### Phase 7c: Application Layer
@@ -147,8 +145,8 @@ Finally, deploy the complete application:
 
 ```bash
 # Uncomment all modules
-./deploy-infrastructure.sh plan
-./deploy-infrastructure.sh apply
+../deploy.sh aws plan
+../deploy.sh aws apply
 ```
 
 ## Phase 4: Configuration and Testing
@@ -186,7 +184,7 @@ enable_cross_region_backup  = true  # For DR
 
 ### Step 9: Deploy Complete Infrastructure
 ```bash
-./deploy-infrastructure.sh apply
+../deploy.sh aws apply
 ```
 
 ### Step 10: Verify Deployment
@@ -285,10 +283,10 @@ aws application-autoscaling describe-scaling-activities \
 
 ## Cleanup
 
-To destroy the infrastructure:
+To destroy the infrastructure, run the following command from the root of the repository:
 
 ```bash
-./deploy-infrastructure.sh destroy
+../deploy.sh aws destroy
 ```
 
 **Warning**: This will permanently delete all resources including databases. Ensure you have backups!
