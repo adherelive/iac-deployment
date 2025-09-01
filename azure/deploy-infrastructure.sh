@@ -1,15 +1,52 @@
 #!/bin/bash
 
-# deploy-infrastructure.sh - Placeholder for Azure Deployment
-# This script is a placeholder and does not deploy any infrastructure.
+# deploy-infrastructure.sh - Azure Deployment Script
+# This script initializes and runs Terraform for the Azure environment.
 
-# Colors for output
+set -e
+
+# --- Colors for output ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}[WARNING] Azure infrastructure deployment is not yet implemented.${NC}"
-echo -e "${YELLOW}This script is a placeholder. To deploy to Azure, you must replace this script"
-echo -e "${YELLOW}with a functional deployment script and ensure your Terraform files in the"
-echo -e "${YELLOW}'azure' directory are correctly configured for Azure.${NC}"
+# --- Helper Functions ---
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+}
 
-exit 1
+error() {
+    echo -e "${RED}[ERROR] $1${NC}"
+    exit 1
+}
+
+# --- Main Logic ---
+ACTION=${1:-plan} # Default to 'plan' if no action is provided
+
+log "Initializing Terraform for Azure..."
+terraform init -upgrade
+
+case $ACTION in
+    plan)
+        log "Creating Terraform plan..."
+        terraform plan -out=tfplan
+        ;;
+    apply)
+        log "Applying Terraform plan..."
+        terraform apply -auto-approve tfplan
+        ;;
+    destroy)
+        log "Destroying Terraform-managed infrastructure..."
+        terraform destroy -auto-approve
+        ;;
+    init)
+        log "Terraform has already been initialized."
+        ;;
+    *)
+        error "Invalid action: '$ACTION'. Please use 'plan', 'apply', 'destroy', or 'init'."
+        ;;
+esac
+
+log "Azure script finished."
