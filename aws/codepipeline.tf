@@ -1,31 +1,45 @@
 # codepipeline.tf - CI/CD Pipeline for AdhereLive
 
+# --- S3 Bucket for Pipeline Logging ---
+resource "aws_s3_bucket" "codepipeline_log_bucket" {
+  bucket = "${local.name_prefix}-${local.environment}-codepipeline-logs-${data.aws_caller_identity.current.account_id}"
+
+  tags = local.common_tags
+}
+
 # --- S3 Bucket for Pipeline Artifacts ---
 resource "aws_s3_bucket" "codepipeline_artifacts" {
   bucket = "${local.name_prefix}-${local.environment}-codepipeline-artifacts-${data.aws_caller_identity.current.account_id}"
 
-  # It's good practice to enforce encryption and block public access.
-  # server_side_encryption_configuration {
-  #   rule {
-  #     apply_server_side_encryption_by_default {
-  #       sse_algorithm = "AES256"
-  #     }
-  #   }
-  # }
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
 
-  # versioning {
-  #   enabled = true
-  # }
+  versioning {
+    enabled = true
+  }
 
-  # block_public_access {
-  #   block_public_acls       = true
-  #   block_public_policy     = true
-  #   ignore_public_acls      = true
-  #   restrict_public_buckets = true
-  # }
+  logging {
+    target_bucket = aws_s3_bucket.codepipeline_log_bucket.id
+    target_prefix = "log/"
+  }
 
   tags = local.common_tags
 }
+
+resource "aws_s3_bucket_public_access_block" "codepipeline_artifacts" {
+  bucket = aws_s3_bucket.codepipeline_artifacts.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 
 # --- IAM Role for CodePipeline ---
 resource "aws_iam_role" "codepipeline_role" {
@@ -96,8 +110,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = "*"
       },
       {
-        Effect = "Allow",
-        Action = "iam:PassRole",
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = module.ecs.task_role_arn
       }
     ]

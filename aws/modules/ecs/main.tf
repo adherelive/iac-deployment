@@ -366,12 +366,6 @@ resource "aws_ecs_service" "backend" {
   desired_count   = var.backend_desired_count
   launch_type     = "FARGATE"
 
-  # Enable service connect for simplified networking if needed
-  # service_connect_configuration {
-  #   enabled = true
-  #   namespace = aws_service_discovery_http_namespace.main.arn
-  # }
-
   network_configuration {
     security_groups  = [var.ecs_security_group_id]
     subnets          = var.private_subnet_ids
@@ -384,7 +378,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = 5000
   }
 
-  depends_on = [aws_lb_listener_rule.backend_http, aws_lb_listener_rule.backend_https]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 
   tags = var.tags
 }

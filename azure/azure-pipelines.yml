@@ -15,7 +15,7 @@ trigger:
 # It should contain variables like:
 # - MYSQL_ADMIN_PASSWORD
 # - MONGO_DB_URI
-# - all other secrets from your .env files (prefixed with 'fe_' or 'be_')
+# - all other secrets from your .env files (e.g., TOKEN_SECRET_KEY, TWILIO_ACCOUNT_SID, etc.)
 variables:
 - group: adherelive-secrets
 - name: AZURE_SERVICE_CONNECTION # The name of your Azure DevOps Service Connection
@@ -36,6 +36,12 @@ variables:
   value: '$(Build.BuildId)'
 - name: TF_WORKING_DIR
   value: '$(System.DefaultWorkingDirectory)/azure'
+- name: TF_STATE_STORAGE_ACCOUNT
+  value: 'yourterraformstate' # The name of the storage account you created for Terraform state
+- name: TF_STATE_CONTAINER
+  value: 'tfstate'
+- name: TF_STATE_KEY
+  value: 'adherelive.tfstate'
 
 stages:
 - stage: Build
@@ -50,7 +56,7 @@ stages:
       displayName: 'Login to ACR'
       inputs:
         command: 'login'
-        containerRegistry: $(AZURE_SERVICE_CONNECTION) # Assumes ACR is in the same subscription
+        containerRegistry: $(AZURE_SERVICE_CONNECTION)
 
     - task: Docker@2
       displayName: 'Build and Push Frontend Image'
@@ -58,7 +64,7 @@ stages:
         command: 'buildAndPush'
         repository: $(FRONTEND_IMAGE_NAME)
         dockerfile: '$(TF_WORKING_DIR)/Dockerfile-fe'
-        buildContext: '$(TF_WORKING_DIR)/../' # Assuming Dockerfile needs root context
+        buildContext: '$(System.DefaultWorkingDirectory)' # Root of the repo
         containerRegistry: $(AZURE_SERVICE_CONNECTION)
         tags: |
           $(IMAGE_TAG)
@@ -70,7 +76,7 @@ stages:
         command: 'buildAndPush'
         repository: $(BACKEND_IMAGE_NAME)
         dockerfile: '$(TF_WORKING_DIR)/Dockerfile-be'
-        buildContext: '$(TF_WORKING_DIR)/../' # Assuming Dockerfile needs root context
+        buildContext: '$(System.DefaultWorkingDirectory)' # Root of the repo
         containerRegistry: $(AZURE_SERVICE_CONNECTION)
         tags: |
           $(IMAGE_TAG)
@@ -85,13 +91,6 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-    - task: InstallSSHKey@0
-      displayName: 'Install SSH Key for Terraform (if needed)'
-      inputs:
-        knownHostsEntry: 'github.com'
-        sshPublicKey: '$(YOUR_SSH_PUBLIC_KEY_VAR)' # If terraform needs to clone private modules
-        sshKeysecureFile: 'id_rsa'
-
     - task: TerraformInstaller@0
       displayName: 'Install Terraform'
       inputs:
@@ -105,9 +104,9 @@ stages:
         workingDirectory: $(TF_WORKING_DIR)
         backendServiceArm: $(AZURE_SERVICE_CONNECTION)
         backendAzureRmResourceGroupName: $(RESOURCE_GROUP_NAME)
-        backendAzureRmStorageAccountName: 'yourterraformstate' # You need to create a storage account for the state file
-        backendAzureRmContainerName: 'tfstate'
-        backendAzureRmKey: 'adherelive.tfstate'
+        backendAzureRmStorageAccountName: $(TF_STATE_STORAGE_ACCOUNT)
+        backendAzureRmContainerName: $(TF_STATE_CONTAINER)
+        backendAzureRmKey: $(TF_STATE_KEY)
 
     - task: TerraformTaskV2@2
       displayName: 'Terraform Apply'
@@ -115,10 +114,9 @@ stages:
         provider: 'azurerm'
         command: 'apply'
         workingDirectory: $(TF_WORKING_DIR)
-        commandOptions: '-auto-approve'
         environmentServiceNameAzureRM: $(AZURE_SERVICE_CONNECTION)
-        # Pass variables to Terraform
-        commandOptions: >
+        commandOptions: >-
+          -auto-approve
           -var "mysql_admin_password=$(MYSQL_ADMIN_PASSWORD)"
           -var "acr_name=$(ACR_NAME)"
           -var "key_vault_name=$(KEY_VAULT_NAME)"
@@ -132,22 +130,40 @@ stages:
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az keyvault secret set --vault-name $(KEY_VAULT_NAME) --name "be-MONGO-DB-URI" --value "$(MONGO_DB_URI)"
-          # Add more 'az keyvault secret set' commands for all your other secrets
-          # Example:
-          # az keyvault secret set --vault-name $(KEY_VAULT_NAME) --name "fe-REACT-APP-GETSTREAM-API-KEY" --value "$(fe-REACT-APP-GETSTREAM-API-KEY)"
+          # The list of secrets to populate in Key Vault
+          # This is a subset. Add all required secrets from your .env files to your Variable Group.
+          # The key in the variable group should be the secret name (e.g., MONGO_DB_URI)
+          # The script will add the 'be-' prefix.
+          SECRETS=(
+            MONGO_DB_URI
+            TOKEN_SECRET_KEY
+            TWILIO_ACCOUNT_SID
+            TWILIO_API_KEY
+            TWILIO_API_SECRET
+          )
+
+          for secret_name in "${SECRETS[@]}"; do
+            # The pipeline variable is expected to have the same name as the secret key
+            secret_value=$(eval echo \$"$secret_name")
+            if [ -n "$secret_value" ]; then
+              echo "Setting secret: be-$secret_name"
+              az keyvault secret set --vault-name "$(KEY_VAULT_NAME)" --name "be-$secret_name" --value "$secret_value"
+            else
+              echo "Warning: Variable for secret '$secret_name' is not defined in the pipeline's variable group."
+            fi
+          done
           echo "Secrets populated."
 
     - task: AzureWebAppContainer@1
       displayName: 'Deploy Frontend App'
       inputs:
         azureSubscription: $(AZURE_SERVICE_CONNECTION)
-        appName: 'adherelive-fe-$(environment)'
+        appName: "adherelive-fe-$(environment)"
         imageName: '$(ACR_NAME).azurecr.io/$(FRONTEND_IMAGE_NAME):$(IMAGE_TAG)'
 
     - task: AzureWebAppContainer@1
       displayName: 'Deploy Backend App'
       inputs:
         azureSubscription: $(AZURE_SERVICE_CONNECTION)
-        appName: 'adherelive-be-$(environment)'
+        appName: "adherelive-be-$(environment)"
         imageName: '$(ACR_NAME).azurecr.io/$(BACKEND_IMAGE_NAME):$(IMAGE_TAG)'

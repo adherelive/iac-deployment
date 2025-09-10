@@ -15,6 +15,41 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+locals {
+  # List of backend secret names to be referenced from Key Vault.
+  # The pipeline is expected to create secrets in Key Vault with the 'be-' prefix.
+  # Example: 'be-MONGO_DB_URI', 'be-TOKEN_SECRET_KEY', etc.
+  backend_secret_keys = [
+    "MONGO_DB_URI",
+    "TOKEN_SECRET_KEY",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_API_KEY",
+    "TWILIO_API_SECRET",
+    "TWILIO_CHAT_SERVICE_SID",
+    "TWILIO_AUTH_TOKEN",
+    "GETSTREAM_API_KEY",
+    "GETSTREAM_API_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "SENDGRID_API_KEY",
+    "RAZORPAY_KEY",
+    "RAZORPAY_SECRET",
+    "ALGOLIA_BACKEND_KEY",
+    "AGORA_APP_CERTIFICATE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "ONE_SIGNAL_KEY"
+    # Add any other required secret keys here
+  ]
+
+  # Create a map of app settings for the backend, dynamically generating Key Vault references.
+  backend_app_settings_from_kv = {
+    for key in local.backend_secret_keys : key => "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/be-${key}/)"
+  }
+}
+
 # Create a resource group
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
@@ -79,11 +114,6 @@ resource "azurerm_mysql_flexible_server" "main" {
 
   # Disable public access
   public_network_access_enabled = false
-
-  # High availability can be enabled for production SKUs
-  # high_availability {
-  #   mode = "ZoneRedundant"
-  # }
 
   backup_retention_days = 7
 }
@@ -155,7 +185,6 @@ resource "azurerm_linux_web_app" "frontend" {
   # Connect to VNet
   virtual_network_subnet_id = azurerm_subnet.app_service_subnet.id
 
-  # App settings will be Key Vault references
   app_settings = {
     "DOCKER_REGISTRY_SERVER_URL"      = "https://${azurerm_container_registry.main.login_server}"
     "DOCKER_REGISTRY_SERVER_USERNAME" = azurerm_container_registry.main.admin_username
@@ -188,21 +217,22 @@ resource "azurerm_linux_web_app" "backend" {
   # Connect to VNet
   virtual_network_subnet_id = azurerm_subnet.app_service_subnet.id
 
-  # App settings will be Key Vault references
-  app_settings = {
-    "DOCKER_REGISTRY_SERVER_URL"      = "https://${azurerm_container_registry.main.login_server}"
-    "DOCKER_REGISTRY_SERVER_USERNAME" = azurerm_container_registry.main.admin_username
-    "DOCKER_REGISTRY_SERVER_PASSWORD" = azurerm_container_registry.main.admin_password
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
-
-    # These will be replaced by Key Vault references in the pipeline
-    "DB_HOST"      = azurerm_mysql_flexible_server.main.fqdn
-    "DB_USER"      = var.mysql_admin_username
-    "DB_PASSWORD"  = var.mysql_admin_password
-    "DB_DATABASE"  = "adhere"
-    "MONGO_DB_URI" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/be-MONGO-DB-URI/)"
-    # Add other backend secrets as Key Vault references
-  }
+  # App settings are a combination of static values and dynamic Key Vault references
+  app_settings = merge(
+    {
+      "DOCKER_REGISTRY_SERVER_URL"      = "https://${azurerm_container_registry.main.login_server}"
+      "DOCKER_REGISTRY_SERVER_USERNAME" = azurerm_container_registry.main.admin_username
+      "DOCKER_REGISTRY_SERVER_PASSWORD" = azurerm_container_registry.main.admin_password
+      "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+      "DB_HOST"                         = azurerm_mysql_flexible_server.main.fqdn
+      "DB_USER"                         = var.mysql_admin_username
+      "DB_PASSWORD"                     = var.mysql_admin_password
+      "DB_DATABASE"                     = "adhere"
+      "APP_ENV"                         = var.environment
+      "NODE_ENV"                        = var.environment
+    },
+    local.backend_app_settings_from_kv
+  )
 
   https_only = true
 }

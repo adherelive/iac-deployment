@@ -91,22 +91,36 @@ module "rds" {
   tags = local.common_tags
 }
 
+# --- KMS Key for Secrets ---
+resource "aws_kms_key" "secrets_key" {
+  description             = "KMS key for encrypting application secrets"
+  deletion_window_in_days = 7
+
+  tags = local.common_tags
+}
+
+resource "aws_kms_alias" "secrets_key_alias" {
+  name          = "alias/${local.name_prefix}-${local.environment}-secrets-key"
+  target_key_id = aws_kms_key.secrets_key.key_id
+}
+
 # --- AWS Secrets Manager ---
 resource "aws_secretsmanager_secret" "app_secrets" {
-  name = "${local.name_prefix}-${local.environment}-app-secrets"
+  name       = "${local.name_prefix}-${local.environment}-app-secrets"
+  kms_key_id = aws_kms_key.secrets_key.id
   
   tags = local.common_tags
 }
 
 resource "aws_secretsmanager_secret_version" "app_secrets_initial_version" {
-  secret_id = aws_secretsmanager_secret.app_secrets.id
+  secret_id     = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
     # This is a placeholder. The actual secrets will be populated manually
     # or by a CI/CD pipeline.
     # The keys here should match the environment variable names in your app.
     MONGO_DB_URI = "mongodb+srv://user:password@your-atlas-cluster"
     # Add other backend secrets from your .env file here
-    GETSTREAM_API_KEY = "dummy-key"
+    GETSTREAM_API_KEY    = "dummy-key"
     GETSTREAM_API_SECRET = "dummy-secret"
   })
 }
