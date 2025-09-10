@@ -39,8 +39,8 @@ variable "mysql_endpoint" {
   type        = string
 }
 
-variable "documentdb_endpoint" {
-  description = "DocumentDB endpoint"
+variable "app_secrets_manager_arn" {
+  description = "ARN of the Secrets Manager secret containing app secrets"
   type        = string
 }
 
@@ -81,13 +81,13 @@ variable "frontend_memory" {
 variable "backend_desired_count" {
   description = "Desired number of backend tasks"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "frontend_desired_count" {
   description = "Desired number of frontend tasks"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "domain_name" {
@@ -112,23 +112,6 @@ variable "mysql_username" {
 
 variable "mysql_password" {
   description = "MySQL password"
-  type        = string
-  sensitive   = true
-}
-
-variable "mongodb_database" {
-  description = "MongoDB database name"
-  type        = string
-  default     = "adhere"
-}
-
-variable "mongodb_username" {
-  description = "MongoDB username"
-  type        = string
-}
-
-variable "mongodb_password" {
-  description = "MongoDB password"
   type        = string
   sensitive   = true
 }

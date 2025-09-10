@@ -46,13 +46,7 @@ module "codebuild" {
   name_prefix    = local.name_prefix
   environment    = local.environment
   aws_region     = var.aws_region
-  
-  # Repository Configuration
-  backend_repo_url   = var.backend_repo_url
-  frontend_repo_url  = var.frontend_repo_url
-  backend_branch     = var.backend_branch
-  frontend_branch    = var.frontend_branch
-  image_tag          = var.image_tag
+  image_tag      = var.image_tag
   
   tags = local.common_tags
 }
@@ -97,21 +91,38 @@ module "rds" {
   tags = local.common_tags
 }
 
-# DocumentDB Module (MongoDB replacement)
-module "documentdb" {
-  source = "./modules/documentdb"
-  
-  name_prefix           = local.name_prefix
-  environment          = local.environment
-  vpc_id               = module.vpc.vpc_id
-  private_subnet_ids   = module.vpc.private_subnet_ids
-  security_group_ids   = [module.security_groups.documentdb_security_group_id]
-  
-  master_username  = var.mongodb_username
-  master_password  = var.mongodb_password
-  mongodb_database = var.mongodb_database
+# --- KMS Key for Secrets ---
+resource "aws_kms_key" "secrets_key" {
+  description             = "KMS key for encrypting application secrets"
+  deletion_window_in_days = 7
+
+  tags = local.common_tags
+}
+
+resource "aws_kms_alias" "secrets_key_alias" {
+  name          = "alias/${local.name_prefix}-${local.environment}-secrets-key"
+  target_key_id = aws_kms_key.secrets_key.key_id
+}
+
+# --- AWS Secrets Manager ---
+resource "aws_secretsmanager_secret" "app_secrets" {
+  name       = "${local.name_prefix}-${local.environment}-app-secrets"
+  kms_key_id = aws_kms_key.secrets_key.id
   
   tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "app_secrets_initial_version" {
+  secret_id     = aws_secretsmanager_secret.app_secrets.id
+  secret_string = jsonencode({
+    # This is a placeholder. The actual secrets will be populated manually
+    # or by a CI/CD pipeline.
+    # The keys here should match the environment variable names in your app.
+    MONGO_DB_URI = "mongodb+srv://user:password@your-atlas-cluster"
+    # Add other backend secrets from your .env file here
+    GETSTREAM_API_KEY    = "dummy-key"
+    GETSTREAM_API_SECRET = "dummy-secret"
+  })
 }
 
 # ECS Cluster Module
@@ -130,7 +141,6 @@ module "ecs" {
   
   # Database connections
   mysql_endpoint    = module.rds.endpoint
-  documentdb_endpoint = module.documentdb.endpoint
   
   # Application configuration
   backend_image    = "${module.codebuild.backend_ecr_repository_url}:${var.image_tag}"
@@ -138,12 +148,14 @@ module "ecs" {
   domain_name      = var.domain_name
   subdomain        = var.subdomain
   
-  # Environment variables
+  # Environment variables for MySQL (passed directly for simplicity here)
+  # In a production setup, these should also be in Secrets Manager.
   mysql_database   = var.mysql_database
   mysql_username   = var.mysql_username
   mysql_password   = var.mysql_password
-  mongodb_username = var.mongodb_username
-  mongodb_password = var.mongodb_password
+
+  # Secrets from Secrets Manager
+  app_secrets_manager_arn = aws_secretsmanager_secret.app_secrets.arn
   
   # SSL Certificate (empty for now)
   certificate_arn = ""

@@ -23,3 +23,8 @@ output "frontend_service_name" {
   description = "Frontend service name"
   value       = aws_ecs_service.frontend.name
 }
+
+output "task_role_arn" {
+  description = "ARN of the ECS task role"
+  value       = aws_iam_role.ecs_task_role.arn
+}
