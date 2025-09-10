@@ -57,6 +57,7 @@ variable "mysql_server_name" {
 variable "mysql_admin_username" {
   description = "The admin username for the MySQL server."
   type        = string
+  default     = "mysqladmin"
 }
 
 variable "mysql_admin_password" {
