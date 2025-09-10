@@ -1,0 +1,28 @@
+# terraform.tfvars.example for AWS
+#
+# Copy this file to 'terraform.tfvars' and fill in the required values.
+# Do NOT commit terraform.tfvars to your version control.
+
+# --- AWS Configuration ---
+# aws_region = "ap-south-1"
+# aws_profile = "your-cli-profile" # Optional
+
+# --- Environment ---
+# environment = "dev"
+
+# --- Database ---
+mysql_username = "adherelive"
+mysql_password = "YOUR_STRONG_MYSQL_PASSWORD"
+
+# --- CI/CD Pipeline ---
+# You must create a CodeStar connection to GitHub in the AWS Console first.
+# See: https://docs.aws.amazon.com/dtconsole/latest/userguide/connections-create-github.html
+github_owner            = "your-github-username-or-org"
+github_repo             = "adherelive-repo-name"
+github_branch           = "main"
+codestar_connection_arn = "arn:aws:codestar-connections:us-east-1:123456789012:connection/your-connection-id"
+
+# --- Domain ---
+# The domain name you own and have configured in Route 53.
+domain_name = "example.com"
+subdomain   = "portal"

@@ -15,42 +15,41 @@ variable "environment" {
 variable "resource_group_name" {
   description = "The name of the resource group."
   type        = string
+  default     = "adherelive-rg"
 }
 
 variable "key_vault_name" {
-  description = "The name of the Azure Key Vault."
+  description = "The name of the Azure Key Vault. Must be globally unique."
   type        = string
+  default     = "adherelive-kv-12345"
 }
 
-variable "ssh_public_key" {
-  description = "The public SSH key to be used for accessing the VMs."
+variable "acr_name" {
+  description = "The name of the Azure Container Registry. Must be globally unique."
   type        = string
-  sensitive   = true
+  default     = "adhereliveacr12345"
 }
 
-variable "my_ip_address" {
-  description = "Your public IP address. Used to restrict SSH access to the VMs."
+variable "frontend_image_name" {
+  description = "The name of the frontend image in ACR."
   type        = string
+  default     = "adherelive-fe"
 }
 
-variable "vm_size" {
-  description = "The size of the virtual machines."
+variable "backend_image_name" {
+  description = "The name of the backend image in ACR."
   type        = string
-  default     = "Standard_B2s"
+  default     = "adherelive-be"
 }
 
-variable "github_repo_fe" {
-  description = "The URL of the frontend GitHub repository."
+variable "image_tag" {
+  description = "The tag of the Docker images to deploy."
   type        = string
-}
-
-variable "github_repo_be" {
-  description = "The URL of the backend GitHub repository."
-  type        = string
+  default     = "latest"
 }
 
 variable "mysql_server_name" {
-  description = "The name of the MySQL server."
+  description = "The name of the MySQL flexible server."
   type        = string
   default     = "adherelive-mysql-server"
 }
@@ -58,7 +57,6 @@ variable "mysql_server_name" {
 variable "mysql_admin_username" {
   description = "The admin username for the MySQL server."
   type        = string
-  default     = "mysqladmin"
 }
 
 variable "mysql_admin_password" {
@@ -68,31 +66,7 @@ variable "mysql_admin_password" {
 }
 
 variable "mysql_sku_name" {
-  description = "The SKU name for the MySQL server."
+  description = "The SKU name for the MySQL server. Example: GP_Standard_D2ds_v4"
   type        = string
-  default     = "B_Gen5_1"
-}
-
-variable "redis_cache_name" {
-  description = "The name of the Redis cache."
-  type        = string
-  default     = "adherelive-redis-cache"
-}
-
-variable "redis_sku_name" {
-  description = "The SKU name for the Redis cache."
-  type        = string
-  default     = "Basic"
-}
-
-variable "redis_family" {
-    description = "The family for the Redis cache."
-    type        = string
-    default     = "C"
-}
-
-variable "redis_capacity" {
-    description = "The capacity for the Redis cache."
-    type        = number
-    default     = 0
+  default     = "GP_Standard_D2ds_v4"
 }

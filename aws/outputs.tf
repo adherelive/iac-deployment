@@ -90,14 +90,10 @@ output "mysql_port" {
   value       = module.rds.port
 }
 
-output "documentdb_endpoint" {
-  description = "DocumentDB cluster endpoint"
-  value       = module.documentdb.endpoint
-}
-
-output "documentdb_port" {
-  description = "DocumentDB port"
-  value       = module.documentdb.port
+# Secrets Manager Output
+output "app_secrets_manager_arn" {
+  description = "ARN of the application secrets in Secrets Manager"
+  value       = aws_secretsmanager_secret.app_secrets.arn
 }
 
 # Security Group Outputs
@@ -114,11 +110,6 @@ output "ecs_security_group_id" {
 output "rds_security_group_id" {
   description = "ID of the RDS security group"
   value       = module.security_groups.rds_security_group_id
-}
-
-output "documentdb_security_group_id" {
-  description = "ID of the DocumentDB security group"
-  value       = module.security_groups.documentdb_security_group_id
 }
 
 # Commented out until SSL is enabled

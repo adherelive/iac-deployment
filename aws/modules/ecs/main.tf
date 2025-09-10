@@ -38,7 +38,7 @@ resource "aws_lb_target_group" "backend" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/health"
+    path                = "/api/health" # A more specific health check path
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
@@ -178,6 +178,24 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Add policy for Secrets Manager access
+resource "aws_iam_role_policy" "ecs_secrets_manager_policy" {
+  name = "${var.name_prefix}-${var.environment}-ecs-secrets-policy"
+  role = aws_iam_role.ecs_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = var.app_secrets_manager_arn
+      }
+    ]
+  })
+}
+
+
 # ECS Task Role (for application permissions)
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.name_prefix}-${var.environment}-ecs-task-role"
@@ -235,31 +253,46 @@ resource "aws_ecs_task_definition" "backend" {
         }
       ]
 
+      # Non-sensitive environment variables
       environment = [
         {
           name  = "NODE_ENV"
           value = "production"
         },
         {
-          name  = "MYSQL_HOST"
+          name  = "DB_HOST"
           value = var.mysql_endpoint
         },
         {
-          name  = "MYSQL_DATABASE"
+          name  = "DB_DATABASE"
           value = var.mysql_database
         },
         {
-          name  = "MYSQL_USER"
+          name  = "DB_USER"
           value = var.mysql_username
         },
         {
-          name  = "MYSQL_PASSWORD"
+          name  = "DB_PASSWORD"
           value = var.mysql_password
+        }
+      ]
+
+      # Securely inject secrets from AWS Secrets Manager
+      secrets = [
+        {
+          name = "MONGO_DB_URI"
+          valueFrom = "${var.app_secrets_manager_arn}:MONGO_DB_URI::"
         },
         {
-          name  = "MONGO_URI"
-          value = "mongodb://${var.mongodb_username}:${var.mongodb_password}@${var.documentdb_endpoint}:27017/${var.mongodb_database}?authSource=admin&ssl=true"
+          name = "GETSTREAM_API_KEY"
+          valueFrom = "${var.app_secrets_manager_arn}:GETSTREAM_API_KEY::"
+        },
+        {
+          name = "GETSTREAM_API_SECRET"
+          valueFrom = "${var.app_secrets_manager_arn}:GETSTREAM_API_SECRET::"
         }
+        # Add other secrets here, mapping the environment variable name
+        # to the key in the Secrets Manager JSON object.
       ]
 
       logConfiguration = {
@@ -300,6 +333,15 @@ resource "aws_ecs_task_definition" "frontend" {
         }
       ]
 
+      # The frontend likely needs some environment variables at runtime too
+      # These should be non-sensitive. Sensitive keys for React apps are handled at build time.
+      environment = [
+        {
+            name = "REACT_APP_API_BASE_URL",
+            value = "/api" # Using relative URL to go through the ALB
+        }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -324,6 +366,12 @@ resource "aws_ecs_service" "backend" {
   desired_count   = var.backend_desired_count
   launch_type     = "FARGATE"
 
+  # Enable service connect for simplified networking if needed
+  # service_connect_configuration {
+  #   enabled = true
+  #   namespace = aws_service_discovery_http_namespace.main.arn
+  # }
+
   network_configuration {
     security_groups  = [var.ecs_security_group_id]
     subnets          = var.private_subnet_ids
@@ -336,7 +384,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = 5000
   }
 
-  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
+  depends_on = [aws_lb_listener_rule.backend_http, aws_lb_listener_rule.backend_https]
 
   tags = var.tags
 }

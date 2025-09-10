@@ -1,36 +1,26 @@
 # outputs.tf
 
-output "frontend_public_ip" {
-  description = "The public IP address of the frontend VM."
-  value       = azurerm_public_ip.frontend_pip.ip_address
+output "frontend_app_service_url" {
+  description = "The URL of the frontend App Service."
+  value       = "https://${azurerm_linux_web_app.frontend.default_hostname}"
 }
 
-output "backend_public_ip" {
-  description = "The public IP address of the backend VM."
-  value       = azurerm_public_ip.backend_pip.ip_address
+output "backend_app_service_url" {
+  description = "The URL of the backend App Service."
+  value       = "https://${azurerm_linux_web_app.backend.default_hostname}"
 }
 
-output "frontend_public_fqdn" {
-  description = "The fully qualified domain name of the frontend VM."
-  value       = azurerm_public_ip.frontend_pip.fqdn
-}
-
-output "backend_public_fqdn" {
-  description = "The fully qualified domain name of the backend VM."
-  value       = azurerm_public_ip.backend_pip.fqdn
-}
-
-output "mysql_hostname" {
-  description = "The hostname of the Azure Database for MySQL server."
-  value       = azurerm_mysql_server.main.fqdn
-}
-
-output "redis_hostname" {
-  description = "The hostname of the Azure Cache for Redis instance."
-  value       = azurerm_redis_cache.main.hostname
+output "mysql_flexible_server_fqdn" {
+  description = "The FQDN of the MySQL Flexible Server."
+  value       = azurerm_mysql_flexible_server.main.fqdn
 }
 
 output "key_vault_uri" {
   description = "The URI of the Azure Key Vault."
   value       = azurerm_key_vault.main.vault_uri
+}
+
+output "container_registry_login_server" {
+  description = "The login server for the Azure Container Registry."
+  value       = azurerm_container_registry.main.login_server
 }

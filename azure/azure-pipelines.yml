@@ -1,0 +1,153 @@
+# Azure CI/CD Pipeline for AdhereLive
+
+# Trigger this pipeline on changes to the 'azure' directory or manual runs
+trigger:
+  branches:
+    include:
+    - main # Or your primary branch
+  paths:
+    include:
+    - azure/*
+
+# Pipeline variables
+# You should create a Variable Group in Azure DevOps named 'adherelive-secrets'
+# and link it to your Key Vault or add the secrets manually.
+# It should contain variables like:
+# - MYSQL_ADMIN_PASSWORD
+# - MONGO_DB_URI
+# - all other secrets from your .env files (prefixed with 'fe_' or 'be_')
+variables:
+- group: adherelive-secrets
+- name: AZURE_SERVICE_CONNECTION # The name of your Azure DevOps Service Connection
+  value: 'Your-Azure-Service-Connection-Name'
+- name: RESOURCE_GROUP_NAME
+  value: 'adherelive-rg'
+- name: LOCATION
+  value: 'East US'
+- name: KEY_VAULT_NAME
+  value: 'adherelive-kv-12345' # Must match the one in your .tfvars
+- name: ACR_NAME
+  value: 'adhereliveacr12345' # Must match the one in your .tfvars
+- name: FRONTEND_IMAGE_NAME
+  value: 'adherelive-fe'
+- name: BACKEND_IMAGE_NAME
+  value: 'adherelive-be'
+- name: IMAGE_TAG
+  value: '$(Build.BuildId)'
+- name: TF_WORKING_DIR
+  value: '$(System.DefaultWorkingDirectory)/azure'
+
+stages:
+- stage: Build
+  displayName: 'Build & Push Docker Images'
+  jobs:
+  - job: BuildImages
+    displayName: 'Build and Push'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: 'login'
+        containerRegistry: $(AZURE_SERVICE_CONNECTION) # Assumes ACR is in the same subscription
+
+    - task: Docker@2
+      displayName: 'Build and Push Frontend Image'
+      inputs:
+        command: 'buildAndPush'
+        repository: $(FRONTEND_IMAGE_NAME)
+        dockerfile: '$(TF_WORKING_DIR)/Dockerfile-fe'
+        buildContext: '$(TF_WORKING_DIR)/../' # Assuming Dockerfile needs root context
+        containerRegistry: $(AZURE_SERVICE_CONNECTION)
+        tags: |
+          $(IMAGE_TAG)
+          latest
+
+    - task: Docker@2
+      displayName: 'Build and Push Backend Image'
+      inputs:
+        command: 'buildAndPush'
+        repository: $(BACKEND_IMAGE_NAME)
+        dockerfile: '$(TF_WORKING_DIR)/Dockerfile-be'
+        buildContext: '$(TF_WORKING_DIR)/../' # Assuming Dockerfile needs root context
+        containerRegistry: $(AZURE_SERVICE_CONNECTION)
+        tags: |
+          $(IMAGE_TAG)
+          latest
+
+- stage: Deploy
+  displayName: 'Deploy Infrastructure and Application'
+  dependsOn: Build
+  jobs:
+  - job: DeployInfra
+    displayName: 'Terraform Apply & Deploy'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: InstallSSHKey@0
+      displayName: 'Install SSH Key for Terraform (if needed)'
+      inputs:
+        knownHostsEntry: 'github.com'
+        sshPublicKey: '$(YOUR_SSH_PUBLIC_KEY_VAR)' # If terraform needs to clone private modules
+        sshKeysecureFile: 'id_rsa'
+
+    - task: TerraformInstaller@0
+      displayName: 'Install Terraform'
+      inputs:
+        terraformVersion: 'latest'
+
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: $(TF_WORKING_DIR)
+        backendServiceArm: $(AZURE_SERVICE_CONNECTION)
+        backendAzureRmResourceGroupName: $(RESOURCE_GROUP_NAME)
+        backendAzureRmStorageAccountName: 'yourterraformstate' # You need to create a storage account for the state file
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: 'adherelive.tfstate'
+
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Apply'
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: $(TF_WORKING_DIR)
+        commandOptions: '-auto-approve'
+        environmentServiceNameAzureRM: $(AZURE_SERVICE_CONNECTION)
+        # Pass variables to Terraform
+        commandOptions: >
+          -var "mysql_admin_password=$(MYSQL_ADMIN_PASSWORD)"
+          -var "acr_name=$(ACR_NAME)"
+          -var "key_vault_name=$(KEY_VAULT_NAME)"
+          -var "resource_group_name=$(RESOURCE_GROUP_NAME)"
+          -var "image_tag=$(IMAGE_TAG)"
+
+    - task: AzureCLI@2
+      displayName: 'Populate Key Vault Secrets'
+      inputs:
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az keyvault secret set --vault-name $(KEY_VAULT_NAME) --name "be-MONGO-DB-URI" --value "$(MONGO_DB_URI)"
+          # Add more 'az keyvault secret set' commands for all your other secrets
+          # Example:
+          # az keyvault secret set --vault-name $(KEY_VAULT_NAME) --name "fe-REACT-APP-GETSTREAM-API-KEY" --value "$(fe-REACT-APP-GETSTREAM-API-KEY)"
+          echo "Secrets populated."
+
+    - task: AzureWebAppContainer@1
+      displayName: 'Deploy Frontend App'
+      inputs:
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
+        appName: 'adherelive-fe-$(environment)'
+        imageName: '$(ACR_NAME).azurecr.io/$(FRONTEND_IMAGE_NAME):$(IMAGE_TAG)'
+
+    - task: AzureWebAppContainer@1
+      displayName: 'Deploy Backend App'
+      inputs:
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
+        appName: 'adherelive-be-$(environment)'
+        imageName: '$(ACR_NAME).azurecr.io/$(BACKEND_IMAGE_NAME):$(IMAGE_TAG)'
